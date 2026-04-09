@@ -3,7 +3,7 @@
 Plugin Name: Adschi Consultation Popup
 Plugin URI: https://adschi.com/
 Description: A modern, lightweight popup form triggered by a CSS class, designed for consultation requests (Name, Email, Phone, Date). Features reCAPTCHA, fast AJAX, and a CRM-style admin dashboard.
-Version: 1.0
+Version: 1.2
 Requires at least: 5.0
 Tested up to: 6.5
 Author: Mohammad Babaei
@@ -31,6 +31,9 @@ function acp_install_db() {
         email varchar(255) NOT NULL,
         phone varchar(100) NOT NULL,
         req_date varchar(50) NOT NULL,
+        message text,
+        department varchar(255),
+        attachment varchar(255),
         status varchar(50) DEFAULT 'pending' NOT NULL,
         admin_note text,
         created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -49,11 +52,11 @@ function acp_install_db() {
     ) $charset_collate;";
     dbDelta($sql_logs);
 
-    update_option('acp_db_version', '1.1');
+    update_option('acp_db_version', '1.2');
 }
 
 function acp_check_db() {
-    if (get_option('acp_db_version') !== '1.1') {
+    if (get_option('acp_db_version') !== '1.2') {
         acp_install_db();
     }
 }

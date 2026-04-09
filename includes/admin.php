@@ -2,9 +2,21 @@
 if (!defined('ABSPATH')) exit;
 
 add_action('admin_menu', function() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'acp_requests';
+    $pending_count = 0;
+    if($wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name) {
+        $pending_count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE status = 'pending'");
+    }
+
+    $menu_title = acp_t('درخواست مشاوره', 'Consultation Requests', 'Beratungsanfragen');
+    if ($pending_count > 0) {
+        $menu_title .= ' <span class="update-plugins count-' . esc_attr($pending_count) . '"><span class="plugin-count">' . esc_html($pending_count) . '</span></span>';
+    }
+
     add_menu_page(
         acp_t('درخواست مشاوره', 'Consultation Requests', 'Beratungsanfragen'),
-        acp_t('درخواست مشاوره', 'Consultation Requests', 'Beratungsanfragen'),
+        $menu_title,
         'manage_options',
         'acp-requests',
         'acp_render_crm_page',
@@ -38,12 +50,31 @@ function acp_render_settings_page() {
             'form_title' => sanitize_text_field($settings['form_title'] ?? ''),
             'admin_email' => sanitize_email($settings['admin_email'] ?? ''),
             'recaptcha_type' => sanitize_text_field($settings['recaptcha_type'] ?? 'none'),
-            'recaptcha_site_key' => sanitize_text_field($settings['recaptcha_site_key'] ?? ''),
-            'recaptcha_secret_key' => sanitize_text_field($settings['recaptcha_secret_key'] ?? ''),
+            'recaptcha_v2_site_key' => sanitize_text_field($settings['recaptcha_v2_site_key'] ?? ''),
+            'recaptcha_v2_secret_key' => sanitize_text_field($settings['recaptcha_v2_secret_key'] ?? ''),
+            'recaptcha_v3_site_key' => sanitize_text_field($settings['recaptcha_v3_site_key'] ?? ''),
+            'recaptcha_v3_secret_key' => sanitize_text_field($settings['recaptcha_v3_secret_key'] ?? ''),
             'show_name' => isset($settings['show_name']) ? '1' : '0',
             'show_email' => isset($settings['show_email']) ? '1' : '0',
             'show_phone' => isset($settings['show_phone']) ? '1' : '0',
             'show_date' => isset($settings['show_date']) ? '1' : '0',
+
+            'req_name' => isset($settings['req_name']) ? '1' : '0',
+            'req_email' => isset($settings['req_email']) ? '1' : '0',
+            'req_phone' => isset($settings['req_phone']) ? '1' : '0',
+            'req_date' => isset($settings['req_date']) ? '1' : '0',
+
+            'show_msg' => isset($settings['show_msg']) ? '1' : '0',
+            'req_msg' => isset($settings['req_msg']) ? '1' : '0',
+
+            'show_dept' => isset($settings['show_dept']) ? '1' : '0',
+            'req_dept' => isset($settings['req_dept']) ? '1' : '0',
+            'dept_options' => sanitize_text_field($settings['dept_options'] ?? ''),
+
+            'show_file' => isset($settings['show_file']) ? '1' : '0',
+            'req_file' => isset($settings['req_file']) ? '1' : '0',
+
+            'form_theme' => sanitize_text_field($settings['form_theme'] ?? 'light'),
             'form_image_url' => sanitize_url($settings['form_image_url'] ?? ''),
         ];
         update_option('acp_settings', $sanitized_settings);
@@ -54,12 +85,26 @@ function acp_render_settings_page() {
         'form_title' => acp_t('درخواست مشاوره', 'Request a Consultation', 'Beratung anfordern'),
         'admin_email' => get_option('admin_email'),
         'recaptcha_type' => 'none',
-        'recaptcha_site_key' => '',
-        'recaptcha_secret_key' => '',
+        'recaptcha_v2_site_key' => '',
+        'recaptcha_v2_secret_key' => '',
+        'recaptcha_v3_site_key' => '',
+        'recaptcha_v3_secret_key' => '',
         'show_name' => '1',
         'show_email' => '1',
         'show_phone' => '1',
         'show_date' => '1',
+        'req_name' => '1',
+        'req_email' => '0',
+        'req_phone' => '1',
+        'req_date' => '1',
+        'show_msg' => '0',
+        'req_msg' => '0',
+        'show_dept' => '0',
+        'req_dept' => '0',
+        'dept_options' => '',
+        'show_file' => '0',
+        'req_file' => '0',
+        'form_theme' => 'light',
         'form_image_url' => '',
     ]);
     ?>
@@ -78,25 +123,76 @@ function acp_render_settings_page() {
                     <td><input type="email" name="acp_settings[admin_email]" class="regular-text" value="<?php echo esc_attr($settings['admin_email'] ?? ''); ?>"></td>
                 </tr>
 
-                <tr><th colspan="2"><h3><?php echo esc_html(acp_t('فیلدهای فرم (روشن = نمایش)', 'Form Fields (Checked = Show)', 'Formularfelder (Angekreuzt = Anzeigen)')); ?></h3></th></tr>
+                <tr><th colspan="2"><h3><?php echo esc_html(acp_t('فیلدهای فرم', 'Form Fields', 'Formularfelder')); ?></h3></th></tr>
+                <tr>
+                    <th></th>
+                    <td><strong><?php echo esc_html(acp_t('نمایش', 'Show', 'Anzeigen')); ?></strong> &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; <strong><?php echo esc_html(acp_t('اجباری', 'Required', 'Erforderlich')); ?></strong></td>
+                </tr>
                 <tr>
                     <th scope="row"><?php echo esc_html(acp_t('نام و نام خانوادگی', 'Full Name', 'Vollständiger Name')); ?></th>
-                    <td><input type="checkbox" name="acp_settings[show_name]" value="1" <?php checked($settings['show_name'] ?? '1', '1'); ?>></td>
+                    <td>
+                        <input type="checkbox" name="acp_settings[show_name]" value="1" <?php checked($settings['show_name'] ?? '1', '1'); ?>> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="checkbox" name="acp_settings[req_name]" value="1" <?php checked($settings['req_name'] ?? '1', '1'); ?>>
+                    </td>
                 </tr>
                 <tr>
                     <th scope="row"><?php echo esc_html(acp_t('ایمیل', 'Email', 'E-Mail')); ?></th>
-                    <td><input type="checkbox" name="acp_settings[show_email]" value="1" <?php checked($settings['show_email'] ?? '1', '1'); ?>></td>
+                    <td>
+                        <input type="checkbox" name="acp_settings[show_email]" value="1" <?php checked($settings['show_email'] ?? '1', '1'); ?>> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="checkbox" name="acp_settings[req_email]" value="1" <?php checked($settings['req_email'] ?? '0', '1'); ?>>
+                    </td>
                 </tr>
                 <tr>
                     <th scope="row"><?php echo esc_html(acp_t('شماره تماس', 'Phone Number', 'Telefonnummer')); ?></th>
-                    <td><input type="checkbox" name="acp_settings[show_phone]" value="1" <?php checked($settings['show_phone'] ?? '1', '1'); ?>></td>
+                    <td>
+                        <input type="checkbox" name="acp_settings[show_phone]" value="1" <?php checked($settings['show_phone'] ?? '1', '1'); ?>> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="checkbox" name="acp_settings[req_phone]" value="1" <?php checked($settings['req_phone'] ?? '1', '1'); ?>>
+                    </td>
                 </tr>
                 <tr>
                     <th scope="row"><?php echo esc_html(acp_t('تاریخ', 'Date', 'Datum')); ?></th>
-                    <td><input type="checkbox" name="acp_settings[show_date]" value="1" <?php checked($settings['show_date'] ?? '1', '1'); ?>></td>
+                    <td>
+                        <input type="checkbox" name="acp_settings[show_date]" value="1" <?php checked($settings['show_date'] ?? '1', '1'); ?>> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="checkbox" name="acp_settings[req_date]" value="1" <?php checked($settings['req_date'] ?? '1', '1'); ?>>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html(acp_t('پیام / متن تکمیلی', 'Message / Textarea', 'Nachricht / Textbereich')); ?></th>
+                    <td>
+                        <input type="checkbox" name="acp_settings[show_msg]" value="1" <?php checked($settings['show_msg'] ?? '0', '1'); ?>> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="checkbox" name="acp_settings[req_msg]" value="1" <?php checked($settings['req_msg'] ?? '0', '1'); ?>>
+                    </td>
+                </tr>
+
+                <tr><th colspan="2"><h3><?php echo esc_html(acp_t('فیلدهای فرم (روشن = نمایش)', 'Form Fields (Checked = Show)', 'Formularfelder (Angekreuzt = Anzeigen)')); ?></h3></th></tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html(acp_t('آپلود فایل', 'File Upload', 'Datei-Upload')); ?></th>
+                    <td>
+                        <input type="checkbox" name="acp_settings[show_file]" value="1" <?php checked($settings['show_file'] ?? '0', '1'); ?>> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="checkbox" name="acp_settings[req_file]" value="1" <?php checked($settings['req_file'] ?? '0', '1'); ?>>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html(acp_t('دپارتمان / موضوع (کشویی)', 'Department (Dropdown)', 'Abteilung (Dropdown)')); ?></th>
+                    <td>
+                        <input type="checkbox" name="acp_settings[show_dept]" value="1" <?php checked($settings['show_dept'] ?? '0', '1'); ?>> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="checkbox" name="acp_settings[req_dept]" value="1" <?php checked($settings['req_dept'] ?? '0', '1'); ?>>
+                        <br><br>
+                        <input type="text" name="acp_settings[dept_options]" class="regular-text" placeholder="<?php echo esc_attr(acp_t('مثال: فروش, پشتیبانی, مشاوره', 'Ex: Sales, Support, Consultation', 'Bsp: Vertrieb, Support, Beratung')); ?>" value="<?php echo esc_attr($settings['dept_options'] ?? ''); ?>">
+                        <p class="description"><?php echo esc_html(acp_t('گزینه‌ها را با کاما (,) جدا کنید.', 'Separate options with a comma (,).', 'Trennen Sie die Optionen mit einem Komma (,).')); ?></p>
+                    </td>
                 </tr>
 
                 <tr><th colspan="2"><h3><?php echo esc_html(acp_t('ظاهر و تصویر', 'Appearance & Image', 'Aussehen & Bild')); ?></h3></th></tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html(acp_t('تم فرم', 'Form Theme', 'Formular-Theme')); ?></th>
+                    <td>
+                        <select name="acp_settings[form_theme]">
+                            <option value="light" <?php selected($settings['form_theme'] ?? 'light', 'light'); ?>><?php echo esc_html(acp_t('روشن (کلاسیک)', 'Light (Classic)', 'Hell (Klassisch)')); ?></option>
+                            <option value="dark" <?php selected($settings['form_theme'] ?? 'light', 'dark'); ?>><?php echo esc_html(acp_t('تاریک (مدرن)', 'Dark (Modern)', 'Dunkel (Modern)')); ?></option>
+                        </select>
+                    </td>
+                </tr>
                 <tr>
                     <th scope="row"><?php echo esc_html(acp_t('آدرس تصویر کنار فرم (اختیاری)', 'Side Image URL (Optional)', 'URL des Seitenbildes (Optional)')); ?></th>
                     <td><input type="url" name="acp_settings[form_image_url]" class="regular-text" value="<?php echo esc_url($settings['form_image_url'] ?? ''); ?>">
@@ -115,13 +211,22 @@ function acp_render_settings_page() {
                         </select>
                     </td>
                 </tr>
-                <tr class="acp_recaptcha_keys_row">
-                    <th scope="row">Google reCAPTCHA Site Key</th>
-                    <td><input type="text" name="acp_settings[recaptcha_site_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_site_key'] ?? ''); ?>"></td>
+                <tr class="acp_recaptcha_v2_row">
+                    <th scope="row">Google reCAPTCHA v2 Site Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v2_site_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v2_site_key'] ?? ''); ?>"></td>
                 </tr>
-                <tr class="acp_recaptcha_keys_row">
-                    <th scope="row">Google reCAPTCHA Secret Key</th>
-                    <td><input type="text" name="acp_settings[recaptcha_secret_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_secret_key'] ?? ''); ?>"></td>
+                <tr class="acp_recaptcha_v2_row">
+                    <th scope="row">Google reCAPTCHA v2 Secret Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v2_secret_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v2_secret_key'] ?? ''); ?>"></td>
+                </tr>
+
+                <tr class="acp_recaptcha_v3_row">
+                    <th scope="row">Google reCAPTCHA v3 Site Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v3_site_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v3_site_key'] ?? ''); ?>"></td>
+                </tr>
+                <tr class="acp_recaptcha_v3_row">
+                    <th scope="row">Google reCAPTCHA v3 Secret Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v3_secret_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v3_secret_key'] ?? ''); ?>"></td>
                 </tr>
             </table>
             <p><input type="submit" name="acp_save" class="button button-primary" value="<?php echo esc_attr(acp_t('ذخیره', 'Save', 'Speichern')); ?>"></p>
@@ -130,12 +235,15 @@ function acp_render_settings_page() {
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 var recaptchaType = document.getElementById('acp_recaptcha_type');
-                var keyRows = document.querySelectorAll('.acp_recaptcha_keys_row');
+                var v2Rows = document.querySelectorAll('.acp_recaptcha_v2_row');
+                var v3Rows = document.querySelectorAll('.acp_recaptcha_v3_row');
 
                 function toggleKeys() {
-                    var isGoogle = recaptchaType.value === 'v2' || recaptchaType.value === 'v3';
-                    keyRows.forEach(function(row) {
-                        row.style.display = isGoogle ? 'table-row' : 'none';
+                    v2Rows.forEach(function(row) {
+                        row.style.display = (recaptchaType.value === 'v2') ? 'table-row' : 'none';
+                    });
+                    v3Rows.forEach(function(row) {
+                        row.style.display = (recaptchaType.value === 'v3') ? 'table-row' : 'none';
                     });
                 }
 
@@ -192,9 +300,11 @@ function acp_render_crm_page() {
                     <th style="cursor:pointer;" onclick="acpSortTable(1)"><?php echo esc_html(acp_t('نام', 'Name', 'Name')); ?> &#x21D5;</th>
                     <th style="cursor:pointer;" onclick="acpSortTable(2)"><?php echo esc_html(acp_t('ایمیل / تلفن', 'Email / Phone', 'E-Mail / Telefon')); ?> &#x21D5;</th>
                     <th style="cursor:pointer;" onclick="acpSortTable(3)"><?php echo esc_html(acp_t('تاریخ درخواستی', 'Requested Date', 'Gewünschtes Datum')); ?> &#x21D5;</th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(4)"><?php echo esc_html(acp_t('وضعیت', 'Status', 'Status')); ?> &#x21D5;</th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(5)"><?php echo esc_html(acp_t('یادداشت مدیر', 'Admin Note', 'Admin-Notiz')); ?> &#x21D5;</th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(6)"><?php echo esc_html(acp_t('تاریخ ثبت', 'Submitted At', 'Eingereicht am')); ?> &#x21D5;</th>
+                    <th><?php echo esc_html(acp_t('بخش / پیام', 'Department / Msg', 'Abteilung / Nachr')); ?></th>
+                    <th><?php echo esc_html(acp_t('فایل', 'File', 'Datei')); ?></th>
+                    <th style="cursor:pointer;" onclick="acpSortTable(6)"><?php echo esc_html(acp_t('وضعیت', 'Status', 'Status')); ?> &#x21D5;</th>
+                    <th style="cursor:pointer;" onclick="acpSortTable(7)"><?php echo esc_html(acp_t('یادداشت مدیر', 'Admin Note', 'Admin-Notiz')); ?> &#x21D5;</th>
+                    <th style="cursor:pointer;" onclick="acpSortTable(8)"><?php echo esc_html(acp_t('تاریخ ثبت', 'Submitted At', 'Eingereicht am')); ?> &#x21D5;</th>
                     <th><?php echo esc_html(acp_t('عملیات', 'Actions', 'Aktionen')); ?></th>
                 </tr>
             </thead>
@@ -207,6 +317,19 @@ function acp_render_crm_page() {
                         <td><?php echo esc_html($row->name); ?></td>
                         <td><?php echo esc_html($row->email . ' / ' . $row->phone); ?></td>
                         <td><?php echo esc_html($row->req_date); ?></td>
+                        <td>
+                            <?php
+                            if (!empty($row->department)) echo '<strong>' . esc_html($row->department) . '</strong><br>';
+                            if (!empty($row->message)) echo esc_html(wp_trim_words($row->message, 10));
+                            ?>
+                        </td>
+                        <td>
+                            <?php if(!empty($row->attachment)): ?>
+                                <a href="<?php echo esc_url($row->attachment); ?>" target="_blank" class="button button-small"><?php echo esc_html(acp_t('دانلود', 'Download', 'Herunterladen')); ?></a>
+                            <?php else: ?>
+                                -
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php
                             if ($row->status === 'pending') echo '<span style="color:orange;font-weight:bold;">' . acp_t('در انتظار', 'Pending', 'Ausstehend') . '</span>';
@@ -270,7 +393,7 @@ function acp_render_crm_page() {
                 const rows = tableBody.getElementsByTagName('tr');
 
                 for(let i=0; i<rows.length; i++) {
-                    if(rows[i].cells.length < 8) continue; // skip empty messages
+                    if(rows[i].cells.length < 10) continue; // skip empty messages
 
                     const textContent = rows[i].textContent.toLowerCase();
                     const rowStatus = rows[i].getAttribute('data-raw-status');
@@ -295,7 +418,7 @@ function acp_render_crm_page() {
             const table = document.getElementById('acpRequestsTable');
             const tbody = document.getElementById('acpRequestsBody');
             const rows = Array.from(tbody.querySelectorAll('tr'));
-            if(rows.length === 0 || rows[0].cells.length < 8) return;
+            if(rows.length === 0 || rows[0].cells.length < 10) return;
 
             acpSortAsc = !acpSortAsc;
 

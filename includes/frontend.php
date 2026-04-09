@@ -4,7 +4,12 @@ if (!defined('ABSPATH')) exit;
 function acp_enqueue_frontend_scripts() {
     $settings = get_option('acp_settings');
     $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
-    $site_key = !empty($settings['recaptcha_site_key']) ? $settings['recaptcha_site_key'] : '';
+    $site_key = '';
+    if ($recaptcha_type === 'v2') {
+        $site_key = !empty($settings['recaptcha_v2_site_key']) ? $settings['recaptcha_v2_site_key'] : '';
+    } elseif ($recaptcha_type === 'v3') {
+        $site_key = !empty($settings['recaptcha_v3_site_key']) ? $settings['recaptcha_v3_site_key'] : '';
+    }
 
     if (($recaptcha_type === 'v2' || $recaptcha_type === 'v3') && !empty($site_key)) {
         if ($recaptcha_type === 'v3') {
@@ -20,12 +25,34 @@ function acp_render_popup_html() {
     $settings = get_option('acp_settings', []);
     $title = !empty($settings['form_title']) ? $settings['form_title'] : acp_t('درخواست مشاوره', 'Request a Consultation', 'Beratung anfordern');
     $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
-    $site_key = !empty($settings['recaptcha_site_key']) ? $settings['recaptcha_site_key'] : '';
+    $site_key = '';
+    if ($recaptcha_type === 'v2') {
+        $site_key = !empty($settings['recaptcha_v2_site_key']) ? $settings['recaptcha_v2_site_key'] : '';
+    } elseif ($recaptcha_type === 'v3') {
+        $site_key = !empty($settings['recaptcha_v3_site_key']) ? $settings['recaptcha_v3_site_key'] : '';
+    }
 
     $show_name = isset($settings['show_name']) ? $settings['show_name'] : '1';
     $show_email = isset($settings['show_email']) ? $settings['show_email'] : '1';
     $show_phone = isset($settings['show_phone']) ? $settings['show_phone'] : '1';
     $show_date = isset($settings['show_date']) ? $settings['show_date'] : '1';
+
+    $req_name = isset($settings['req_name']) ? $settings['req_name'] : '1';
+    $req_email = isset($settings['req_email']) ? $settings['req_email'] : '0';
+    $req_phone = isset($settings['req_phone']) ? $settings['req_phone'] : '1';
+    $req_date = isset($settings['req_date']) ? $settings['req_date'] : '1';
+
+    $show_msg = isset($settings['show_msg']) ? $settings['show_msg'] : '0';
+    $req_msg = isset($settings['req_msg']) ? $settings['req_msg'] : '0';
+
+    $show_dept = isset($settings['show_dept']) ? $settings['show_dept'] : '0';
+    $req_dept = isset($settings['req_dept']) ? $settings['req_dept'] : '0';
+    $dept_options = !empty($settings['dept_options']) ? explode(',', $settings['dept_options']) : [];
+
+    $show_file = isset($settings['show_file']) ? $settings['show_file'] : '0';
+    $req_file = isset($settings['req_file']) ? $settings['req_file'] : '0';
+
+    $form_theme = isset($settings['form_theme']) ? $settings['form_theme'] : 'light';
     $form_image_url = !empty($settings['form_image_url']) ? $settings['form_image_url'] : '';
 
     $is_rtl = is_rtl() || strpos(get_locale(), 'fa_') === 0;
@@ -48,7 +75,9 @@ function acp_render_popup_html() {
             align-items: center; justify-content: center;
         }
         #acp-popup-box {
-            background: #fff; border-radius: 12px; width: 90%; max-width: <?php echo $form_image_url ? '800px' : '450px'; ?>;
+            background: <?php echo $form_theme === 'dark' ? '#1e1e1e' : '#fff'; ?>;
+            color: <?php echo $form_theme === 'dark' ? '#eee' : '#333'; ?>;
+            border-radius: 12px; width: 90%; max-width: <?php echo $form_image_url ? '800px' : '450px'; ?>;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; direction: <?php echo $dir; ?>;
             font-family: inherit; overflow: hidden; display: flex; flex-direction: <?php echo $is_rtl ? 'row-reverse' : 'row'; ?>;
         }
@@ -70,7 +99,15 @@ function acp_render_popup_html() {
         }
         .acp-form-group { margin-bottom: 15px; text-align: <?php echo $align; ?>; }
         .acp-form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
-        .acp-form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .acp-form-group input, .acp-form-group textarea, .acp-form-group select {
+            width: 100%; padding: 10px;
+            border: 1px solid <?php echo $form_theme === 'dark' ? '#444' : '#ccc'; ?>;
+            background: <?php echo $form_theme === 'dark' ? '#2d2d2d' : '#fff'; ?>;
+            color: <?php echo $form_theme === 'dark' ? '#fff' : '#000'; ?>;
+            border-radius: 6px; box-sizing: border-box; font-family: inherit;
+        }
+        #acp-popup-close { color: <?php echo $form_theme === 'dark' ? '#bbb' : '#666'; ?> !important; }
+
         .acp-btn { width: 100%; padding: 12px; background: #007cba; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: 0.3s; }
         .acp-btn:hover { background: #005a8c; }
         #acp-msg { margin-top: 15px; font-size: 14px; text-align: center; display: none; padding: 10px; border-radius: 4px;}
@@ -90,31 +127,57 @@ function acp_render_popup_html() {
                 <form id="acp-form">
                     <?php wp_nonce_field('acp_submit_action', 'acp_submit_nonce'); ?>
 
+                    <?php if ($show_dept == '1' && !empty($dept_options)): ?>
+                    <div class="acp-form-group">
+                        <label><?php echo esc_html(acp_t('بخش / موضوع', 'Department / Subject', 'Abteilung / Thema')); ?> <?php if($req_dept == '1') echo '*'; ?></label>
+                        <select name="acp_department" <?php if($req_dept == '1') echo 'required'; ?>>
+                            <option value=""><?php echo esc_html(acp_t('انتخاب کنید...', 'Select...', 'Auswählen...')); ?></option>
+                            <?php foreach($dept_options as $opt): $opt = trim($opt); if(empty($opt)) continue; ?>
+                                <option value="<?php echo esc_attr($opt); ?>"><?php echo esc_html($opt); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+
                     <?php if ($show_name == '1'): ?>
                     <div class="acp-form-group">
-                        <label><?php echo esc_html(acp_t('نام و نام خانوادگی', 'Full Name', 'Vollständiger Name')); ?> *</label>
-                        <input type="text" name="acp_name" required>
+                        <label><?php echo esc_html(acp_t('نام و نام خانوادگی', 'Full Name', 'Vollständiger Name')); ?> <?php if($req_name == '1') echo '*'; ?></label>
+                        <input type="text" name="acp_name" <?php if($req_name == '1') echo 'required'; ?>>
                     </div>
                     <?php endif; ?>
 
                     <?php if ($show_email == '1'): ?>
                     <div class="acp-form-group">
-                        <label><?php echo esc_html(acp_t('ایمیل', 'Email', 'E-Mail')); ?></label>
-                        <input type="email" name="acp_email">
+                        <label><?php echo esc_html(acp_t('ایمیل', 'Email', 'E-Mail')); ?> <?php if($req_email == '1') echo '*'; ?></label>
+                        <input type="email" name="acp_email" <?php if($req_email == '1') echo 'required'; ?>>
                     </div>
                     <?php endif; ?>
 
                     <?php if ($show_phone == '1'): ?>
                     <div class="acp-form-group">
-                        <label><?php echo esc_html(acp_t('شماره تماس', 'Phone Number', 'Telefonnummer')); ?> *</label>
-                        <input type="tel" name="acp_phone" required>
+                        <label><?php echo esc_html(acp_t('شماره تماس', 'Phone Number', 'Telefonnummer')); ?> <?php if($req_phone == '1') echo '*'; ?></label>
+                        <input type="tel" name="acp_phone" <?php if($req_phone == '1') echo 'required'; ?>>
                     </div>
                     <?php endif; ?>
 
                     <?php if ($show_date == '1'): ?>
                     <div class="acp-form-group">
-                        <label><?php echo esc_html(acp_t('تاریخ درخواستی', 'Requested Date', 'Gewünschtes Datum')); ?> *</label>
-                        <input type="date" name="acp_date" required min="<?php echo date('Y-m-d'); ?>" onclick="if(this.showPicker) this.showPicker();">
+                        <label><?php echo esc_html(acp_t('تاریخ درخواستی', 'Requested Date', 'Gewünschtes Datum')); ?> <?php if($req_date == '1') echo '*'; ?></label>
+                        <input type="date" name="acp_date" <?php if($req_date == '1') echo 'required'; ?> min="<?php echo date('Y-m-d'); ?>" onclick="if(this.showPicker) this.showPicker();">
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if ($show_msg == '1'): ?>
+                    <div class="acp-form-group">
+                        <label><?php echo esc_html(acp_t('پیام شما', 'Your Message', 'Ihre Nachricht')); ?> <?php if($req_msg == '1') echo '*'; ?></label>
+                        <textarea name="acp_message" rows="3" <?php if($req_msg == '1') echo 'required'; ?>></textarea>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if ($show_file == '1'): ?>
+                    <div class="acp-form-group">
+                        <label><?php echo esc_html(acp_t('آپلود فایل', 'Upload File', 'Datei hochladen')); ?> <?php if($req_file == '1') echo '*'; ?></label>
+                        <input type="file" name="acp_attachment" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" <?php if($req_file == '1') echo 'required'; ?>>
                     </div>
                     <?php endif; ?>
 
