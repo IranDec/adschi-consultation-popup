@@ -24,7 +24,14 @@ add_action('admin_menu', function() {
 
 function acp_render_settings_page() {
     if (isset($_POST['acp_save']) && check_admin_referer('acp_settings_action', 'acp_settings_nonce')) {
-        update_option('acp_settings', $_POST['acp_settings']);
+        $settings = isset($_POST['acp_settings']) ? $_POST['acp_settings'] : [];
+        $sanitized_settings = [
+            'form_title' => sanitize_text_field($settings['form_title'] ?? ''),
+            'admin_email' => sanitize_email($settings['admin_email'] ?? ''),
+            'recaptcha_site_key' => sanitize_text_field($settings['recaptcha_site_key'] ?? ''),
+            'recaptcha_secret_key' => sanitize_text_field($settings['recaptcha_secret_key'] ?? ''),
+        ];
+        update_option('acp_settings', $sanitized_settings);
         echo '<div class="updated"><p>' . esc_html(acp_t('تنظیمات ذخیره شد.', 'Settings saved.', 'Einstellungen gespeichert.')) . '</p></div>';
     }
 

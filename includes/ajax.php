@@ -54,6 +54,14 @@ function acp_submit_request_ajax() {
             'req_date' => $date,
             'status' => 'pending',
             'created_at' => current_time('mysql')
+        ],
+        [
+            '%s', // name
+            '%s', // email
+            '%s', // phone
+            '%s', // req_date
+            '%s', // status
+            '%s'  // created_at
         ]
     );
 
