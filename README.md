@@ -33,3 +33,6 @@ You can trigger the popup form from any button or link by simply adding the clas
 
 ## License
 GPLv2 or later.
+
+Contributors: Mohammad Babaei
+Donate link: https://adschi.com/
