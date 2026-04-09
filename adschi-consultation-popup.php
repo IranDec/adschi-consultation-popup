@@ -20,7 +20,10 @@ define('ACP_URL', plugin_dir_url(__FILE__));
 function acp_install_db() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'acp_requests';
+    $table_logs = $wpdb->prefix . 'acp_email_logs';
     $charset_collate = $wpdb->get_charset_collate();
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
     $sql = "CREATE TABLE $table_name (
         id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -33,14 +36,24 @@ function acp_install_db() {
         created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
-
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
-    update_option('acp_db_version', '1.0');
+
+    $sql_logs = "CREATE TABLE $table_logs (
+        id bigint(20) NOT NULL AUTO_INCREMENT,
+        recipient_email varchar(255) NOT NULL,
+        subject varchar(255) NOT NULL,
+        status varchar(50) NOT NULL,
+        error_msg text,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+    dbDelta($sql_logs);
+
+    update_option('acp_db_version', '1.1');
 }
 
 function acp_check_db() {
-    if (get_option('acp_db_version') !== '1.0') {
+    if (get_option('acp_db_version') !== '1.1') {
         acp_install_db();
     }
 }
