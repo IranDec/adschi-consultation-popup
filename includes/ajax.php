@@ -6,7 +6,12 @@ function acp_submit_request_ajax() {
 
     $settings = get_option('acp_settings', []);
     $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
-    $secret_key = !empty($settings['recaptcha_secret_key']) ? $settings['recaptcha_secret_key'] : '';
+    $secret_key = '';
+    if ($recaptcha_type === 'v2') {
+        $secret_key = !empty($settings['recaptcha_v2_secret_key']) ? $settings['recaptcha_v2_secret_key'] : '';
+    } elseif ($recaptcha_type === 'v3') {
+        $secret_key = !empty($settings['recaptcha_v3_secret_key']) ? $settings['recaptcha_v3_secret_key'] : '';
+    }
 
     // Verify CAPTCHA
     if ($recaptcha_type === 'math') {

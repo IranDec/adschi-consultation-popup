@@ -50,8 +50,10 @@ function acp_render_settings_page() {
             'form_title' => sanitize_text_field($settings['form_title'] ?? ''),
             'admin_email' => sanitize_email($settings['admin_email'] ?? ''),
             'recaptcha_type' => sanitize_text_field($settings['recaptcha_type'] ?? 'none'),
-            'recaptcha_site_key' => sanitize_text_field($settings['recaptcha_site_key'] ?? ''),
-            'recaptcha_secret_key' => sanitize_text_field($settings['recaptcha_secret_key'] ?? ''),
+            'recaptcha_v2_site_key' => sanitize_text_field($settings['recaptcha_v2_site_key'] ?? ''),
+            'recaptcha_v2_secret_key' => sanitize_text_field($settings['recaptcha_v2_secret_key'] ?? ''),
+            'recaptcha_v3_site_key' => sanitize_text_field($settings['recaptcha_v3_site_key'] ?? ''),
+            'recaptcha_v3_secret_key' => sanitize_text_field($settings['recaptcha_v3_secret_key'] ?? ''),
             'show_name' => isset($settings['show_name']) ? '1' : '0',
             'show_email' => isset($settings['show_email']) ? '1' : '0',
             'show_phone' => isset($settings['show_phone']) ? '1' : '0',
@@ -83,8 +85,10 @@ function acp_render_settings_page() {
         'form_title' => acp_t('درخواست مشاوره', 'Request a Consultation', 'Beratung anfordern'),
         'admin_email' => get_option('admin_email'),
         'recaptcha_type' => 'none',
-        'recaptcha_site_key' => '',
-        'recaptcha_secret_key' => '',
+        'recaptcha_v2_site_key' => '',
+        'recaptcha_v2_secret_key' => '',
+        'recaptcha_v3_site_key' => '',
+        'recaptcha_v3_secret_key' => '',
         'show_name' => '1',
         'show_email' => '1',
         'show_phone' => '1',
@@ -205,13 +209,22 @@ function acp_render_settings_page() {
                         </select>
                     </td>
                 </tr>
-                <tr class="acp_recaptcha_keys_row">
-                    <th scope="row">Google reCAPTCHA Site Key</th>
-                    <td><input type="text" name="acp_settings[recaptcha_site_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_site_key'] ?? ''); ?>"></td>
+                <tr class="acp_recaptcha_v2_row">
+                    <th scope="row">Google reCAPTCHA v2 Site Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v2_site_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v2_site_key'] ?? ''); ?>"></td>
                 </tr>
-                <tr class="acp_recaptcha_keys_row">
-                    <th scope="row">Google reCAPTCHA Secret Key</th>
-                    <td><input type="text" name="acp_settings[recaptcha_secret_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_secret_key'] ?? ''); ?>"></td>
+                <tr class="acp_recaptcha_v2_row">
+                    <th scope="row">Google reCAPTCHA v2 Secret Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v2_secret_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v2_secret_key'] ?? ''); ?>"></td>
+                </tr>
+
+                <tr class="acp_recaptcha_v3_row">
+                    <th scope="row">Google reCAPTCHA v3 Site Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v3_site_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v3_site_key'] ?? ''); ?>"></td>
+                </tr>
+                <tr class="acp_recaptcha_v3_row">
+                    <th scope="row">Google reCAPTCHA v3 Secret Key</th>
+                    <td><input type="text" name="acp_settings[recaptcha_v3_secret_key]" class="regular-text" value="<?php echo esc_attr($settings['recaptcha_v3_secret_key'] ?? ''); ?>"></td>
                 </tr>
             </table>
             <p><input type="submit" name="acp_save" class="button button-primary" value="<?php echo esc_attr(acp_t('ذخیره', 'Save', 'Speichern')); ?>"></p>
@@ -220,12 +233,15 @@ function acp_render_settings_page() {
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 var recaptchaType = document.getElementById('acp_recaptcha_type');
-                var keyRows = document.querySelectorAll('.acp_recaptcha_keys_row');
+                var v2Rows = document.querySelectorAll('.acp_recaptcha_v2_row');
+                var v3Rows = document.querySelectorAll('.acp_recaptcha_v3_row');
 
                 function toggleKeys() {
-                    var isGoogle = recaptchaType.value === 'v2' || recaptchaType.value === 'v3';
-                    keyRows.forEach(function(row) {
-                        row.style.display = isGoogle ? 'table-row' : 'none';
+                    v2Rows.forEach(function(row) {
+                        row.style.display = (recaptchaType.value === 'v2') ? 'table-row' : 'none';
+                    });
+                    v3Rows.forEach(function(row) {
+                        row.style.display = (recaptchaType.value === 'v3') ? 'table-row' : 'none';
                     });
                 }
 

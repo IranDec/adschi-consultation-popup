@@ -4,7 +4,12 @@ if (!defined('ABSPATH')) exit;
 function acp_enqueue_frontend_scripts() {
     $settings = get_option('acp_settings');
     $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
-    $site_key = !empty($settings['recaptcha_site_key']) ? $settings['recaptcha_site_key'] : '';
+    $site_key = '';
+    if ($recaptcha_type === 'v2') {
+        $site_key = !empty($settings['recaptcha_v2_site_key']) ? $settings['recaptcha_v2_site_key'] : '';
+    } elseif ($recaptcha_type === 'v3') {
+        $site_key = !empty($settings['recaptcha_v3_site_key']) ? $settings['recaptcha_v3_site_key'] : '';
+    }
 
     if (($recaptcha_type === 'v2' || $recaptcha_type === 'v3') && !empty($site_key)) {
         if ($recaptcha_type === 'v3') {
@@ -20,7 +25,12 @@ function acp_render_popup_html() {
     $settings = get_option('acp_settings', []);
     $title = !empty($settings['form_title']) ? $settings['form_title'] : acp_t('درخواست مشاوره', 'Request a Consultation', 'Beratung anfordern');
     $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
-    $site_key = !empty($settings['recaptcha_site_key']) ? $settings['recaptcha_site_key'] : '';
+    $site_key = '';
+    if ($recaptcha_type === 'v2') {
+        $site_key = !empty($settings['recaptcha_v2_site_key']) ? $settings['recaptcha_v2_site_key'] : '';
+    } elseif ($recaptcha_type === 'v3') {
+        $site_key = !empty($settings['recaptcha_v3_site_key']) ? $settings['recaptcha_v3_site_key'] : '';
+    }
 
     $show_name = isset($settings['show_name']) ? $settings['show_name'] : '1';
     $show_email = isset($settings['show_email']) ? $settings['show_email'] : '1';
