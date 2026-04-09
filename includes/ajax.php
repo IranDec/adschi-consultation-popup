@@ -165,43 +165,41 @@ function acp_send_emails($name, $email, $phone, $date, $message = '', $departmen
     // Admin Email
     $admin_subject = acp_t('درخواست مشاوره جدید از ', 'New Consultation Request from ', 'Neue Beratungsanfrage von ') . $site_name;
 
-    $dept_html = !empty($department) ? "<p><strong>بخش / موضوع:</strong> $department</p>" : "";
-    $msg_html = !empty($message) ? "<p><strong>پیام:</strong><br><span style='background:#f9f9f9; padding:10px; display:block; border-left:3px solid #007cba;'>$message</span></p>" : "";
-    $file_html = !empty($attachment_url) ? "<p><strong>فایل پیوست:</strong> <a href='$attachment_url' style='color:#007cba; text-decoration:none;'>دانلود فایل</a></p>" : "";
+    $locale = get_locale();
+    $direction = (strpos($locale, 'fa_') === 0) ? 'direction:rtl; text-align:right;' : 'direction:ltr; text-align:left;';
+
+    $dept_label = acp_t('بخش / موضوع:', 'Department / Subject:', 'Abteilung / Thema:');
+    $name_label = acp_t('نام:', 'Name:', 'Name:');
+    $phone_label = acp_t('تلفن:', 'Phone:', 'Telefon:');
+    $email_label = acp_t('ایمیل:', 'Email:', 'E-Mail:');
+    $date_label = acp_t('تاریخ درخواستی:', 'Requested Date:', 'Wunschdatum:');
+    $msg_label = acp_t('پیام:', 'Message:', 'Nachricht:');
+    $file_label = acp_t('فایل پیوست:', 'Attachment:', 'Anhang:');
+    $download_label = acp_t('دانلود فایل', 'Download File', 'Datei herunterladen');
+    $title_label = acp_t('درخواست مشاوره جدید', 'New Consultation Request', 'Neue Beratungsanfrage');
+    $view_label = acp_t('مشاهده درخواست در پنل مدیریت', 'View Request in Dashboard', 'Anfrage im Dashboard ansehen');
+
+    $dept_html = !empty($department) ? "<p><strong>$dept_label</strong> $department</p>" : "";
+    $msg_html = !empty($message) ? "<p><strong>$msg_label</strong><br><span style='background:#f9f9f9; padding:10px; display:block; border-left:3px solid #007cba;'>$message</span></p>" : "";
+    $file_html = !empty($attachment_url) ? "<p><strong>$file_label</strong> <a href='$attachment_url' style='color:#007cba; text-decoration:none;'>$download_label</a></p>" : "";
 
     $admin_body = "
-    <div style='font-family:Tahoma, Arial, sans-serif; direction:rtl; text-align:right; background:#f4f4f4; padding:20px;'>
+    <div style='font-family:Tahoma, Arial, sans-serif; $direction background:#f4f4f4; padding:20px;'>
         <div style='background:#fff; padding:30px; border-radius:8px; max-width:600px; margin:0 auto; box-shadow:0 4px 10px rgba(0,0,0,0.05); border-top: 4px solid #007cba;'>
-            <h2 style='color:#333; border-bottom:1px solid #eee; padding-bottom:10px;'>درخواست مشاوره جدید</h2>
+            <h2 style='color:#333; border-bottom:1px solid #eee; padding-bottom:10px;'>$title_label</h2>
             $dept_html
-            <p><strong>نام:</strong> $name</p>
-            <p><strong>تلفن:</strong> <a href='tel:$phone' style='color:#007cba; text-decoration:none;'>$phone</a></p>
-            <p><strong>ایمیل:</strong> <a href='mailto:$email' style='color:#007cba; text-decoration:none;'>$email</a></p>
-            <p><strong>تاریخ درخواستی:</strong> $date</p>
+            <p><strong>$name_label</strong> $name</p>
+            <p><strong>$phone_label</strong> <a href='tel:$phone' style='color:#007cba; text-decoration:none;'>$phone</a></p>
+            <p><strong>$email_label</strong> <a href='mailto:$email' style='color:#007cba; text-decoration:none;'>$email</a></p>
+            <p><strong>$date_label</strong> $date</p>
             $msg_html
             $file_html
             <hr style='border:none; border-top:1px solid #eee; margin:30px 0 20px;'>
             <div style='text-align:center;'>
-                <a href='$admin_url' style='background:#007cba; color:#fff; text-decoration:none; padding:12px 25px; border-radius:5px; font-weight:bold; display:inline-block;'>مشاهده درخواست در پنل مدیریت</a>
+                <a href='$admin_url' style='background:#007cba; color:#fff; text-decoration:none; padding:12px 25px; border-radius:5px; font-weight:bold; display:inline-block;'>$view_label</a>
             </div>
         </div>
     </div>";
-
-    // In LTR languages, flip the direction
-    $locale = function_exists('get_user_locale') ? get_user_locale() : get_locale();
-    if (strpos($locale, 'fa_') !== 0) {
-        $admin_body = str_replace('direction:rtl; text-align:right;', 'direction:ltr; text-align:left;', $admin_body);
-        $admin_body = str_replace('درخواست مشاوره جدید', 'New Consultation Request', $admin_body);
-        $admin_body = str_replace('بخش / موضوع:', 'Department / Subject:', $admin_body);
-        $admin_body = str_replace('نام:', 'Name:', $admin_body);
-        $admin_body = str_replace('تلفن:', 'Phone:', $admin_body);
-        $admin_body = str_replace('ایمیل:', 'Email:', $admin_body);
-        $admin_body = str_replace('تاریخ درخواستی:', 'Requested Date:', $admin_body);
-        $admin_body = str_replace('پیام:', 'Message:', $admin_body);
-        $admin_body = str_replace('فایل پیوست:', 'Attachment:', $admin_body);
-        $admin_body = str_replace('دانلود فایل', 'Download File', $admin_body);
-        $admin_body = str_replace('مشاهده درخواست در پنل مدیریت', 'View Request in Dashboard', $admin_body);
-    }
 
     // Enable error capturing for wp_mail
     global $phpmailer;
@@ -216,24 +214,22 @@ function acp_send_emails($name, $email, $phone, $date, $message = '', $departmen
     // User Email
     if (!empty($email)) {
         $user_subject = acp_t('درخواست مشاوره شما ثبت شد - ', 'Your Consultation Request is Confirmed - ', 'Ihre Beratungsanfrage ist bestätigt - ') . $site_name;
+
+        $hello_label = acp_t("سلام $name عزیز،", "Hello $name,", "Hallo $name,");
+        $confirmed_label = acp_t("درخواست مشاوره شما برای تاریخ <strong>$date</strong> با موفقیت ثبت شد.", "Your consultation request for <strong>$date</strong> has been successfully received.", "Ihre Beratungsanfrage für <strong>$date</strong> ist erfolgreich eingegangen.");
+        $contact_label = acp_t("کارشناسان ما به زودی از طریق شماره تلفن <strong>$phone</strong> با شما تماس خواهند گرفت.", "Our experts will contact you soon at <strong>$phone</strong>.", "Unsere Experten werden Sie bald unter <strong>$phone</strong> kontaktieren.");
+        $thanks_label = acp_t("با تشکر،<br>تیم پشتیبانی", "Best regards,<br>Support Team", "Mit freundlichen Grüßen,<br>Support-Team");
+
         $user_body = "
-        <div style='font-family:Tahoma, Arial, sans-serif; direction:rtl; text-align:right; background:#f4f4f4; padding:20px;'>
+        <div style='font-family:Tahoma, Arial, sans-serif; $direction background:#f4f4f4; padding:20px;'>
             <div style='background:#fff; padding:20px; border-radius:8px; max-width:600px; margin:0 auto; box-shadow:0 4px 10px rgba(0,0,0,0.1); border-top: 5px solid #007cba;'>
-                <h2 style='color:#333;'>سلام $name عزیز،</h2>
-                <p>درخواست مشاوره شما برای تاریخ <strong>$date</strong> با موفقیت ثبت شد.</p>
-                <p>کارشناسان ما به زودی از طریق شماره تلفن <strong>$phone</strong> با شما تماس خواهند گرفت.</p>
+                <h2 style='color:#333;'>$hello_label</h2>
+                <p>$confirmed_label</p>
+                <p>$contact_label</p>
                 <br>
-                <p>با تشکر،<br>تیم پشتیبانی <strong>$site_name</strong></p>
+                <p>$thanks_label <strong>$site_name</strong></p>
             </div>
         </div>";
-
-        if (strpos($locale, 'fa_') !== 0) {
-            $user_body = str_replace('direction:rtl; text-align:right;', 'direction:ltr; text-align:left;', $user_body);
-            $user_body = str_replace("سلام $name عزیز،", "Hello $name,", $user_body);
-            $user_body = str_replace("درخواست مشاوره شما برای تاریخ <strong>$date</strong> با موفقیت ثبت شد.", "Your consultation request for <strong>$date</strong> has been successfully received.", $user_body);
-            $user_body = str_replace("کارشناسان ما به زودی از طریق شماره تلفن <strong>$phone</strong> با شما تماس خواهند گرفت.", "Our experts will contact you soon at <strong>$phone</strong>.", $user_body);
-            $user_body = str_replace("با تشکر،<br>تیم پشتیبانی", "Best regards,<br>Support Team", $user_body);
-        }
 
         $user_sent = wp_mail($email, $user_subject, $user_body, $headers);
         if ($user_sent) {
