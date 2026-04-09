@@ -81,7 +81,7 @@ function acp_render_popup_html() {
         document.addEventListener('DOMContentLoaded', function() {
             var overlay = document.getElementById('acp-popup-overlay');
             var closeBtn = document.getElementById('acp-popup-close');
-            var triggers = document.querySelectorAll('.acp-trigger-popup, .acp-trigger-popup a');
+            var triggers = document.querySelectorAll('.acp-trigger-popup, .acp-trigger-popup a, .acp-trigger-popup button');
 
             triggers.forEach(function(trigger) {
                 trigger.addEventListener('click', function(e) {
