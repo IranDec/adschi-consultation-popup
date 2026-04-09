@@ -163,6 +163,8 @@ function acp_render_settings_page() {
                         <input type="checkbox" name="acp_settings[req_msg]" value="1" <?php checked($settings['req_msg'] ?? '0', '1'); ?>>
                     </td>
                 </tr>
+
+                <tr><th colspan="2"><h3><?php echo esc_html(acp_t('فیلدهای فرم (روشن = نمایش)', 'Form Fields (Checked = Show)', 'Formularfelder (Angekreuzt = Anzeigen)')); ?></h3></th></tr>
                 <tr>
                     <th scope="row"><?php echo esc_html(acp_t('آپلود فایل', 'File Upload', 'Datei-Upload')); ?></th>
                     <td>
