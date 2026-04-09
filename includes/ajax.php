@@ -4,11 +4,21 @@ if (!defined('ABSPATH')) exit;
 function acp_submit_request_ajax() {
     check_ajax_referer('acp_submit_action', 'acp_submit_nonce');
 
-    $settings = get_option('acp_settings');
+    $settings = get_option('acp_settings', []);
+    $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
     $secret_key = !empty($settings['recaptcha_secret_key']) ? $settings['recaptcha_secret_key'] : '';
 
-    // Verify reCAPTCHA
-    if (!empty($secret_key)) {
+    // Verify CAPTCHA
+    if ($recaptcha_type === 'math') {
+        $math_id = sanitize_text_field($_POST['acp_math_id'] ?? '');
+        $ans = intval($_POST['acp_math_captcha']);
+        $expected_ans = get_transient('acp_' . $math_id);
+
+        if ($expected_ans === false || intval($expected_ans) !== $ans) {
+            wp_send_json_error(['message' => acp_t('کپچای ریاضی اشتباه یا منقضی شده است.', 'Math CAPTCHA is incorrect or expired.', 'Mathe-CAPTCHA ist falsch oder abgelaufen.')]);
+        }
+        delete_transient('acp_' . $math_id); // Ensure single use
+    } elseif (($recaptcha_type === 'v2' || $recaptcha_type === 'v3') && !empty($secret_key)) {
         $recaptcha_response = isset($_POST['g-recaptcha-response']) ? sanitize_text_field($_POST['g-recaptcha-response']) : '';
         if (empty($recaptcha_response)) {
             wp_send_json_error(['message' => acp_t('لطفاً کپچا را تایید کنید.', 'Please verify the captcha.', 'Bitte Captcha bestätigen.')]);
@@ -33,12 +43,17 @@ function acp_submit_request_ajax() {
         }
     }
 
-    $name = sanitize_text_field($_POST['acp_name']);
-    $email = sanitize_email($_POST['acp_email']);
-    $phone = sanitize_text_field($_POST['acp_phone']);
-    $date = sanitize_text_field($_POST['acp_date']);
+    $show_name = isset($settings['show_name']) ? $settings['show_name'] : '1';
+    $show_email = isset($settings['show_email']) ? $settings['show_email'] : '1';
+    $show_phone = isset($settings['show_phone']) ? $settings['show_phone'] : '1';
+    $show_date = isset($settings['show_date']) ? $settings['show_date'] : '1';
 
-    if (empty($name) || empty($phone) || empty($date)) {
+    $name = isset($_POST['acp_name']) ? sanitize_text_field($_POST['acp_name']) : '';
+    $email = isset($_POST['acp_email']) ? sanitize_email($_POST['acp_email']) : '';
+    $phone = isset($_POST['acp_phone']) ? sanitize_text_field($_POST['acp_phone']) : '';
+    $date = isset($_POST['acp_date']) ? sanitize_text_field($_POST['acp_date']) : '';
+
+    if (($show_name == '1' && empty($name)) || ($show_phone == '1' && empty($phone)) || ($show_date == '1' && empty($date))) {
         wp_send_json_error(['message' => acp_t('فیلدهای ستاره‌دار الزامی هستند.', 'Required fields are missing.', 'Pflichtfelder fehlen.')]);
     }
 
@@ -77,8 +92,24 @@ function acp_submit_request_ajax() {
 add_action('wp_ajax_acp_submit_request', 'acp_submit_request_ajax');
 add_action('wp_ajax_nopriv_acp_submit_request', 'acp_submit_request_ajax');
 
+function acp_log_email($recipient, $subject, $status, $error_msg = '') {
+    global $wpdb;
+    $table_logs = $wpdb->prefix . 'acp_email_logs';
+    $wpdb->insert(
+        $table_logs,
+        [
+            'recipient_email' => $recipient,
+            'subject' => $subject,
+            'status' => $status,
+            'error_msg' => $error_msg,
+            'created_at' => current_time('mysql')
+        ],
+        ['%s', '%s', '%s', '%s', '%s']
+    );
+}
+
 function acp_send_emails($name, $email, $phone, $date) {
-    $settings = get_option('acp_settings');
+    $settings = get_option('acp_settings', []);
     $admin_email = !empty($settings['admin_email']) ? $settings['admin_email'] : get_option('admin_email');
     $site_name = get_bloginfo('name');
 
@@ -111,7 +142,15 @@ function acp_send_emails($name, $email, $phone, $date) {
         $admin_body = str_replace('جهت مدیریت وضعیت این درخواست به پنل مدیریت وردپرس مراجعه کنید.', 'Log into WordPress Admin to manage this request.', $admin_body);
     }
 
-    wp_mail($admin_email, $admin_subject, $admin_body, $headers);
+    // Enable error capturing for wp_mail
+    global $phpmailer;
+    $admin_sent = wp_mail($admin_email, $admin_subject, $admin_body, $headers);
+    if ($admin_sent) {
+        acp_log_email($admin_email, $admin_subject, 'success');
+    } else {
+        $error_msg = isset($phpmailer->ErrorInfo) ? $phpmailer->ErrorInfo : 'Unknown wp_mail error';
+        acp_log_email($admin_email, $admin_subject, 'failed', $error_msg);
+    }
 
     // User Email
     if (!empty($email)) {
@@ -135,6 +174,12 @@ function acp_send_emails($name, $email, $phone, $date) {
             $user_body = str_replace("با تشکر،<br>تیم پشتیبانی", "Best regards,<br>Support Team", $user_body);
         }
 
-        wp_mail($email, $user_subject, $user_body, $headers);
+        $user_sent = wp_mail($email, $user_subject, $user_body, $headers);
+        if ($user_sent) {
+            acp_log_email($email, $user_subject, 'success');
+        } else {
+            $error_msg = isset($phpmailer->ErrorInfo) ? $phpmailer->ErrorInfo : 'Unknown wp_mail error';
+            acp_log_email($email, $user_subject, 'failed', $error_msg);
+        }
     }
 }
