@@ -27,6 +27,7 @@ function acp_install_db() {
 
     $sql = "CREATE TABLE $table_name (
         id bigint(20) NOT NULL AUTO_INCREMENT,
+        form_id varchar(50) DEFAULT 'default' NOT NULL,
         name varchar(255) NOT NULL,
         email varchar(255) NOT NULL,
         phone varchar(100) NOT NULL,
@@ -52,12 +53,42 @@ function acp_install_db() {
     ) $charset_collate;";
     dbDelta($sql_logs);
 
-    update_option('acp_db_version', '1.2');
+    update_option('acp_db_version', '1.3');
 }
 
 function acp_check_db() {
-    if (get_option('acp_db_version') !== '1.2') {
+    if (get_option('acp_db_version') !== '1.3') {
         acp_install_db();
+    }
+
+    // Migrate old settings to multiple forms if not done yet
+    $forms = get_option('acp_forms');
+    if ($forms === false) {
+        $settings = get_option('acp_settings');
+        if ($settings) {
+            // we have old settings
+            $form_data = $settings;
+            $form_data['id'] = 'default';
+            $form_data['form_name'] = acp_t('فرم پیش‌فرض', 'Default Form', 'Standardformular');
+
+            // keep global settings separate or leave them in the form data but global logic uses acp_settings
+            $forms = ['default' => $form_data];
+            update_option('acp_forms', $forms);
+        } else {
+            // completely new installation
+            $default_form = [
+                'id' => 'default',
+                'form_name' => acp_t('فرم پیش‌فرض', 'Default Form', 'Standardformular'),
+                'form_title' => acp_t('درخواست مشاوره', 'Request a Consultation', 'Beratung anfordern'),
+                'show_name' => '1', 'show_email' => '1', 'show_phone' => '1', 'show_date' => '1',
+                'req_name' => '1', 'req_email' => '0', 'req_phone' => '1', 'req_date' => '1',
+                'show_msg' => '0', 'req_msg' => '0',
+                'show_dept' => '0', 'req_dept' => '0', 'dept_options' => '',
+                'show_file' => '0', 'req_file' => '0',
+                'form_theme' => 'light', 'form_image_url' => '',
+            ];
+            update_option('acp_forms', ['default' => $default_form]);
+        }
     }
 }
 add_action('plugins_loaded', 'acp_check_db');
