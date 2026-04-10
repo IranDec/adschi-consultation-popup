@@ -4,13 +4,16 @@ if (!defined('ABSPATH')) exit;
 function acp_submit_request_ajax() {
     check_ajax_referer('acp_submit_action', 'acp_submit_nonce');
 
-    $settings = get_option('acp_settings', []);
-    $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
+    $global_settings = get_option('acp_settings', []);
+    $form_id = isset($_POST['acp_form_id']) ? sanitize_text_field($_POST['acp_form_id']) : 'default';
+    $forms = get_option('acp_forms', []);
+    $settings = isset($forms[$form_id]) ? $forms[$form_id] : [];
+    $recaptcha_type = isset($global_settings['recaptcha_type']) ? $global_settings['recaptcha_type'] : 'none';
     $secret_key = '';
     if ($recaptcha_type === 'v2') {
-        $secret_key = !empty($settings['recaptcha_v2_secret_key']) ? $settings['recaptcha_v2_secret_key'] : '';
+        $secret_key = !empty($global_settings['recaptcha_v2_secret_key']) ? $global_settings['recaptcha_v2_secret_key'] : '';
     } elseif ($recaptcha_type === 'v3') {
-        $secret_key = !empty($settings['recaptcha_v3_secret_key']) ? $settings['recaptcha_v3_secret_key'] : '';
+        $secret_key = !empty($global_settings['recaptcha_v3_secret_key']) ? $global_settings['recaptcha_v3_secret_key'] : '';
     }
 
     // Verify CAPTCHA
@@ -103,6 +106,7 @@ function acp_submit_request_ajax() {
     $inserted = $wpdb->insert(
         $table_name,
         [
+            'form_id' => $form_id,
             'name' => $name,
             'email' => $email,
             'phone' => $phone,
@@ -114,6 +118,7 @@ function acp_submit_request_ajax() {
             'created_at' => current_time('mysql')
         ],
         [
+            '%s', // form_id
             '%s', // name
             '%s', // email
             '%s', // phone
@@ -155,8 +160,11 @@ function acp_log_email($recipient, $subject, $status, $error_msg = '') {
 }
 
 function acp_send_emails($name, $email, $phone, $date, $message = '', $department = '', $attachment_url = '') {
-    $settings = get_option('acp_settings', []);
-    $admin_email = !empty($settings['admin_email']) ? $settings['admin_email'] : get_option('admin_email');
+    $global_settings = get_option('acp_settings', []);
+    $form_id = isset($_POST['acp_form_id']) ? sanitize_text_field($_POST['acp_form_id']) : 'default';
+    $forms = get_option('acp_forms', []);
+    $settings = isset($forms[$form_id]) ? $forms[$form_id] : [];
+    $admin_email = !empty($global_settings['admin_email']) ? $global_settings['admin_email'] : get_option('admin_email');
     $site_name = get_bloginfo('name');
     $admin_url = admin_url('admin.php?page=acp-requests');
 
