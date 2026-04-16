@@ -20,6 +20,7 @@ function acp_render_inpost_page() {
             'button_icon' => sanitize_text_field($_POST['button_icon'] ?? 'dashicons-format-chat'),
             'button_font_size' => intval($_POST['button_font_size'] ?? 16),
             'button_width' => sanitize_text_field($_POST['button_width'] ?? 'auto'),
+            'button_animation' => sanitize_text_field($_POST['button_animation'] ?? 'none'),
 
             // Banner Design
             'banner_url' => sanitize_url($_POST['banner_url'] ?? ''),
@@ -60,6 +61,7 @@ function acp_render_inpost_page() {
         'button_icon' => 'dashicons-format-chat',
         'button_font_size' => 16,
         'button_width' => 'auto',
+        'button_animation' => 'none',
         'banner_url' => '',
         'banner_width' => 'full',
         'rules' => []
@@ -88,6 +90,20 @@ function acp_render_inpost_page() {
                             <?php foreach ($forms as $id => $f): ?>
                                 <option value="<?php echo esc_attr($id); ?>" <?php selected($settings['form_id'], $id); ?>><?php echo esc_html($f['form_name']); ?></option>
                             <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html(acp_t('انیمیشن دکمه', 'Button Animation', 'Tastenanimation')); ?></th>
+                    <td>
+                        <select name="button_animation">
+                            <option value="none" <?php selected($settings['button_animation'], 'none'); ?>><?php echo esc_html(acp_t('بدون انیمیشن', 'None', 'Keine')); ?></option>
+                            <option value="pulse" <?php selected($settings['button_animation'], 'pulse'); ?>><?php echo esc_html(acp_t('ضربان دار (Pulse)', 'Pulse', 'Pulsieren')); ?></option>
+                            <option value="shake" <?php selected($settings['button_animation'], 'shake'); ?>><?php echo esc_html(acp_t('تکان ریز (Shake)', 'Shake', 'Schütteln')); ?></option>
+                            <option value="shine" <?php selected($settings['button_animation'], 'shine'); ?>><?php echo esc_html(acp_t('برق زدن (Shine)', 'Shine', 'Glänzen')); ?></option>
+                            <option value="bounce" <?php selected($settings['button_animation'], 'bounce'); ?>><?php echo esc_html(acp_t('پرش (Bounce)', 'Bounce', 'Hüpfen')); ?></option>
+                            <option value="glow" <?php selected($settings['button_animation'], 'glow'); ?>><?php echo esc_html(acp_t('درخشش (Glow)', 'Glow', 'Leuchten')); ?></option>
+                            <option value="float" <?php selected($settings['button_animation'], 'float'); ?>><?php echo esc_html(acp_t('شناور (Float)', 'Float', 'Schweben')); ?></option>
                         </select>
                     </td>
                 </tr>
@@ -320,7 +336,12 @@ function acp_inpost_the_content($content) {
     $btn_fs = intval($settings['button_font_size']) . 'px';
     $btn_icon = esc_attr($settings['button_icon']);
     $btn_width = $settings['button_width'] === 'full' ? '100%' : 'auto';
+    $btn_anim = isset($settings['button_animation']) ? $settings['button_animation'] : 'none';
     $btn_class = 'acp-trigger-popup-' . $form_id . ' acp-inpost-btn';
+
+    if ($btn_anim !== 'none') {
+        $btn_class .= ' acp-anim-' . $btn_anim;
+    }
 
     $button_html = '<div style="text-align: center; margin: 20px 0;"><button class="' . $btn_class . '" style="background-color: ' . $btn_bg . '; color: ' . $btn_color . '; font-size: ' . $btn_fs . '; width: ' . $btn_width . '; border: none; border-radius: 5px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" data-post-id="' . get_the_ID() . '"><span class="dashicons ' . $btn_icon . '" style="font-size: ' . $btn_fs . '; width: auto; height: auto;"></span> ' . $btn_text . '</button></div>';
 
@@ -448,6 +469,72 @@ function acp_inpost_the_content($content) {
         }
     }
 
+    $css = '';
+    if (isset($settings['button_animation']) && $settings['button_animation'] !== 'none') {
+        $css = "
+        <style>
+        .acp-anim-pulse {
+            animation: acpPulse 1.5s infinite;
+        }
+        @keyframes acpPulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0.3); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(0,0,0,0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+        }
+        .acp-anim-shake {
+            animation: acpShake 2s infinite;
+        }
+        @keyframes acpShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+            20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+        .acp-anim-shine {
+            position: relative;
+            overflow: hidden;
+        }
+        .acp-anim-shine::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+            transform: rotate(30deg);
+            animation: acpShine 3s infinite;
+        }
+        @keyframes acpShine {
+            0% { transform: translateX(-100%) rotate(30deg); }
+            20%, 100% { transform: translateX(100%) rotate(30deg); }
+        }
+        .acp-anim-bounce {
+            animation: acpBounce 2s infinite;
+        }
+        @keyframes acpBounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        .acp-anim-glow {
+            animation: acpGlow 2s infinite alternate;
+        }
+        @keyframes acpGlow {
+            from { box-shadow: 0 0 5px currentColor; }
+            to { box-shadow: 0 0 20px currentColor, 0 0 30px currentColor; }
+        }
+        .acp-anim-float {
+            animation: acpFloat 3s ease-in-out infinite;
+        }
+        @keyframes acpFloat {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+        }
+        </style>
+        ";
+    }
+
     // Add JS to track clicks
     $nonce = wp_create_nonce('acp_inpost_click');
     $ajax_url = admin_url('admin-ajax.php');
@@ -473,6 +560,6 @@ function acp_inpost_the_content($content) {
     </script>
     ";
 
-    return $new_content . $js;
+    return $new_content . $css . $js;
 }
 add_filter('the_content', 'acp_inpost_the_content');

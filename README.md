@@ -4,7 +4,7 @@ Donate link: https://adschi.com/
 Tags: consultation, popup, form, recaptcha, elementor, divi
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.5
+Stable tag: 1.6
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,9 @@ You can manage all requests from the "Consultation Requests" menu in your WordPr
 3. Settings page.
 
 == Changelog ==
+
+= 1.6 =
+* Added: 6 cool CSS animations (Pulse, Shake, Shine, Bounce, Glow, Float) for the In-Post module Call-to-Action buttons. You can select them directly from the module settings to grab user attention.
 
 = 1.5 =
 * Fixed: In-Post Module now uses robust DOM parsing to avoid injecting buttons or banners inside nested HTML structures (like FAQ sections or inner divs).
