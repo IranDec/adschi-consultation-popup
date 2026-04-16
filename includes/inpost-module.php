@@ -100,7 +100,7 @@ function acp_render_inpost_page() {
                     <th scope="row"><?php echo esc_html(acp_t('آیکون (Dashicons)', 'Icon (Dashicons)', 'Symbol (Dashicons)')); ?></th>
                     <td>
                         <input type="text" name="button_icon" class="regular-text" value="<?php echo esc_attr($settings['button_icon']); ?>" placeholder="dashicons-format-chat">
-                        <span class="description"><a href="https://developer.wordpress.org/resource/dashicons/" target="_blank">لیست آیکون‌ها</a></span>
+                        <span class="description"><a href="https://developer.wordpress.org/resource/dashicons/" target="_blank"><?php echo esc_html(acp_t('لیست آیکون‌ها', 'Dashicons List', 'Dashicons-Liste')); ?></a></span>
                     </td>
                 </tr>
                 <tr>
