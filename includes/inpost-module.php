@@ -304,6 +304,11 @@ function acp_render_inpost_page() {
 
 // Frontend Injection
 function acp_inpost_the_content($content) {
+    // If automatic injection is disabled for this post, bypass it
+    if (get_post_meta(get_the_ID(), '_acp_disable_inpost', true) === '1') {
+        return $content;
+    }
+
     if (!is_single() || !in_the_loop() || !is_main_query()) {
         return $content;
     }
@@ -328,31 +333,9 @@ function acp_inpost_the_content($content) {
         return $content;
     }
 
-    // Build Button HTML
-    $form_id = esc_attr($settings['form_id']);
-    $btn_text = esc_html($settings['button_text']);
-    $btn_bg = esc_attr($settings['button_color']);
-    $btn_color = esc_attr($settings['button_text_color']);
-    $btn_fs = intval($settings['button_font_size']) . 'px';
-    $btn_icon = esc_attr($settings['button_icon']);
-    $btn_width = $settings['button_width'] === 'full' ? '100%' : 'auto';
-    $btn_anim = isset($settings['button_animation']) ? $settings['button_animation'] : 'none';
-    $btn_class = 'acp-trigger-popup-' . $form_id . ' acp-inpost-btn';
-
-    if ($btn_anim !== 'none') {
-        $btn_class .= ' acp-anim-' . $btn_anim;
-    }
-
-    $button_html = '<div style="text-align: center; margin: 20px 0;"><button class="' . $btn_class . '" style="background-color: ' . $btn_bg . '; color: ' . $btn_color . '; font-size: ' . $btn_fs . '; width: ' . $btn_width . '; border: none; border-radius: 5px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" data-post-id="' . get_the_ID() . '"><span class="dashicons ' . $btn_icon . '" style="font-size: ' . $btn_fs . '; width: auto; height: auto;"></span> ' . $btn_text . '</button></div>';
-
-    // Build Banner HTML
-    $banner_html = '';
-    if (!empty($settings['banner_url'])) {
-        $ban_url = esc_url($settings['banner_url']);
-        $ban_width = $settings['banner_width'] === 'full' ? '100%' : 'auto';
-        $ban_class = 'acp-trigger-popup-' . $form_id . ' acp-inpost-banner';
-        $banner_html = '<div style="text-align: center; margin: 20px 0;"><img src="' . $ban_url . '" class="' . $ban_class . '" style="width: ' . $ban_width . '; max-width: 100%; border-radius: 5px; cursor: pointer;" data-post-id="' . get_the_ID() . '" alt="Banner"></div>';
-    }
+    $elements = acp_generate_inpost_elements($settings);
+    $button_html = $elements['button'];
+    $banner_html = $elements['banner'];
 
     if (empty(trim($content))) {
         return $content;
@@ -506,73 +489,70 @@ function acp_inpost_the_content($content) {
         }
     }
 
+    $assets = acp_generate_inpost_assets($settings);
+    return $new_content . $assets;
+}
+add_filter('the_content', 'acp_inpost_the_content');
+
+
+// Helper function to generate Button and Banner HTML based on settings
+function acp_generate_inpost_elements($settings, $post_id = null) {
+    if (!$post_id) $post_id = get_the_ID();
+
+    $form_id = esc_attr($settings['form_id']);
+    $btn_text = esc_html($settings['button_text']);
+    $btn_bg = esc_attr($settings['button_color']);
+    $btn_color = esc_attr($settings['button_text_color']);
+    $btn_fs = intval($settings['button_font_size']) . 'px';
+    $btn_icon = esc_attr($settings['button_icon']);
+    $btn_width = isset($settings['button_width']) && $settings['button_width'] === 'full' ? '100%' : 'auto';
+    $btn_anim = isset($settings['button_animation']) ? $settings['button_animation'] : 'none';
+    $btn_class = 'acp-trigger-popup-' . $form_id . ' acp-inpost-btn';
+
+    if ($btn_anim !== 'none') {
+        $btn_class .= ' acp-anim-' . $btn_anim;
+    }
+
+    $button_html = '<div style="text-align: center; margin: 20px 0;"><button class="' . $btn_class . '" style="background-color: ' . $btn_bg . '; color: ' . $btn_color . '; font-size: ' . $btn_fs . '; width: ' . $btn_width . '; border: none; border-radius: 5px; padding: 10px 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" data-post-id="' . $post_id . '"><span class="dashicons ' . $btn_icon . '" style="font-size: ' . $btn_fs . '; width: auto; height: auto;"></span> ' . $btn_text . '</button></div>';
+
+    // Build Banner HTML
+    $banner_html = '';
+    if (!empty($settings['banner_url'])) {
+        $ban_url = esc_url($settings['banner_url']);
+        $ban_width = isset($settings['banner_width']) && $settings['banner_width'] === 'full' ? '100%' : 'auto';
+        $ban_class = 'acp-trigger-popup-' . $form_id . ' acp-inpost-banner';
+        $banner_html = '<div style="text-align: center; margin: 20px 0;"><img src="' . $ban_url . '" class="' . $ban_class . '" style="width: ' . $ban_width . '; max-width: 100%; border-radius: 5px; cursor: pointer;" data-post-id="' . $post_id . '" alt="Banner"></div>';
+    }
+
+    return ['button' => $button_html, 'banner' => $banner_html];
+}
+
+function acp_generate_inpost_assets($settings) {
+    static $assets_loaded = false;
+    if ($assets_loaded) return '';
+    $assets_loaded = true;
+
     $css = '';
     if (isset($settings['button_animation']) && $settings['button_animation'] !== 'none') {
         $css = "
         <style>
-        .acp-anim-pulse {
-            animation: acpPulse 1.5s infinite;
-        }
-        @keyframes acpPulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0.3); }
-            50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(0,0,0,0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0); }
-        }
-        .acp-anim-shake {
-            animation: acpShake 2s infinite;
-        }
-        @keyframes acpShake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-            20%, 40%, 60%, 80% { transform: translateX(4px); }
-        }
-        .acp-anim-shine {
-            position: relative;
-            overflow: hidden;
-        }
-        .acp-anim-shine::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
-            transform: rotate(30deg);
-            animation: acpShine 3s infinite;
-        }
-        @keyframes acpShine {
-            0% { transform: translateX(-100%) rotate(30deg); }
-            20%, 100% { transform: translateX(100%) rotate(30deg); }
-        }
-        .acp-anim-bounce {
-            animation: acpBounce 2s infinite;
-        }
-        @keyframes acpBounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-        .acp-anim-glow {
-            animation: acpGlow 2s infinite alternate;
-        }
-        @keyframes acpGlow {
-            from { box-shadow: 0 0 5px currentColor; }
-            to { box-shadow: 0 0 20px currentColor, 0 0 30px currentColor; }
-        }
-        .acp-anim-float {
-            animation: acpFloat 3s ease-in-out infinite;
-        }
-        @keyframes acpFloat {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-8px); }
-            100% { transform: translateY(0px); }
-        }
+        .acp-anim-pulse { animation: acpPulse 1.5s infinite; }
+        @keyframes acpPulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0.3); } 50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(0,0,0,0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0); } }
+        .acp-anim-shake { animation: acpShake 2s infinite; }
+        @keyframes acpShake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); } 20%, 40%, 60%, 80% { transform: translateX(4px); } }
+        .acp-anim-shine { position: relative; overflow: hidden; }
+        .acp-anim-shine::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%); transform: rotate(30deg); animation: acpShine 3s infinite; }
+        @keyframes acpShine { 0% { transform: translateX(-100%) rotate(30deg); } 20%, 100% { transform: translateX(100%) rotate(30deg); } }
+        .acp-anim-bounce { animation: acpBounce 2s infinite; }
+        @keyframes acpBounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-5px); } }
+        .acp-anim-glow { animation: acpGlow 2s infinite alternate; }
+        @keyframes acpGlow { from { box-shadow: 0 0 5px currentColor; } to { box-shadow: 0 0 20px currentColor, 0 0 30px currentColor; } }
+        .acp-anim-float { animation: acpFloat 3s ease-in-out infinite; }
+        @keyframes acpFloat { 0% { transform: translateY(0px); } 50% { transform: translateY(-8px); } 100% { transform: translateY(0px); } }
         </style>
         ";
     }
 
-    // Add JS to track clicks
     $nonce = wp_create_nonce('acp_inpost_click');
     $ajax_url = admin_url('admin-ajax.php');
     $js = "
@@ -580,8 +560,12 @@ function acp_inpost_the_content($content) {
     document.addEventListener('DOMContentLoaded', function() {
         var elements = document.querySelectorAll('.acp-inpost-btn, .acp-inpost-banner');
         elements.forEach(function(el) {
+            // Prevent binding multiple times
+            if (el.dataset.acpBound) return;
+            el.dataset.acpBound = 'true';
             el.addEventListener('click', function() {
                 var postId = this.getAttribute('data-post-id');
+                if (!postId) return;
                 var formData = new FormData();
                 formData.append('action', 'acp_track_inpost_click');
                 formData.append('post_id', postId);
@@ -596,7 +580,80 @@ function acp_inpost_the_content($content) {
     });
     </script>
     ";
-
-    return $new_content . $css . $js;
+    return $css . $js;
 }
-add_filter('the_content', 'acp_inpost_the_content');
+
+// Shortcode for manual placement
+function acp_inpost_shortcode($atts) {
+    $atts = shortcode_atts([
+        'type' => 'button' // 'button' or 'banner'
+    ], $atts, 'acp_inpost');
+
+    $settings = get_option('acp_inpost_settings');
+    if (empty($settings['form_id'])) {
+        return '';
+    }
+
+    $elements = acp_generate_inpost_elements($settings);
+    $assets = acp_generate_inpost_assets($settings);
+
+    $html = $atts['type'] === 'banner' ? $elements['banner'] : $elements['button'];
+    return $html . $assets;
+}
+add_shortcode('acp_inpost', 'acp_inpost_shortcode');
+
+
+// Add Meta Box for disabling automatic injection
+function acp_add_inpost_meta_box() {
+    $screens = ['post', 'page'];
+    foreach ($screens as $screen) {
+        add_meta_box(
+            'acp_inpost_meta_box',
+            acp_t('تنظیمات پاپ‌آپ درون‌نوشته', 'In-Post Popup Settings', 'In-Post-Popup-Einstellungen'),
+            'acp_inpost_meta_box_html',
+            $screen,
+            'side',
+            'default'
+        );
+    }
+}
+add_action('add_meta_boxes', 'acp_add_inpost_meta_box');
+
+function acp_inpost_meta_box_html($post) {
+    $value = get_post_meta($post->ID, '_acp_disable_inpost', true);
+    ?>
+    <label for="acp_disable_inpost">
+        <input type="checkbox" name="acp_disable_inpost" id="acp_disable_inpost" value="1" <?php checked($value, '1'); ?>>
+        <?php echo esc_html(acp_t('غیرفعال‌سازی نمایش خودکار در این نوشته', 'Disable automatic display on this post', 'Automatische Anzeige in diesem Beitrag deaktivieren')); ?>
+    </label>
+    <p class="description" style="margin-top: 10px;">
+        <?php echo esc_html(acp_t('می‌توانید از شورت‌کدهای زیر برای نمایش دستی استفاده کنید:', 'You can use the following shortcodes for manual display:', 'Sie können die folgenden Shortcodes für die manuelle Anzeige verwenden:')); ?>
+        <br><br>
+        <code>[acp_inpost type="button"]</code><br>
+        <code>[acp_inpost type="banner"]</code>
+    </p>
+    <?php
+    wp_nonce_field('acp_inpost_meta_box_save', 'acp_inpost_meta_box_nonce');
+}
+
+function acp_save_inpost_meta_box_data($post_id) {
+    if (!isset($_POST['acp_inpost_meta_box_nonce'])) {
+        return;
+    }
+    if (!wp_verify_nonce($_POST['acp_inpost_meta_box_nonce'], 'acp_inpost_meta_box_save')) {
+        return;
+    }
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+
+    if (isset($_POST['acp_disable_inpost'])) {
+        update_post_meta($post_id, '_acp_disable_inpost', '1');
+    } else {
+        delete_post_meta($post_id, '_acp_disable_inpost');
+    }
+}
+add_action('save_post', 'acp_save_inpost_meta_box_data');
