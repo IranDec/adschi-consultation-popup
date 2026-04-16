@@ -99,3 +99,4 @@ require_once ACP_PATH . 'includes/admin.php';
 require_once ACP_PATH . 'includes/frontend.php';
 require_once ACP_PATH . 'includes/ajax.php';
 require_once ACP_PATH . 'includes/i18n.php';
+require_once ACP_PATH . 'includes/inpost-module.php';
