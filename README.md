@@ -4,7 +4,7 @@ Donate link: https://adschi.com/
 Tags: consultation, popup, form, recaptcha, elementor, divi
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,9 @@ You can manage all requests from the "Consultation Requests" menu in your WordPr
 3. Settings page.
 
 == Changelog ==
+
+= 1.6.2 =
+* Fixed: In-Post Module DOM parser explicitly rejects penetrating page builder components (Divi Accordions, Elementor widgets, etc.), preventing buttons from being inserted inside those modules.
 
 = 1.6.1 =
 * Fixed: In-Post Module DOM parsing refactored to properly inject buttons between structural wrappers, ensuring they are not inserted inside single-block elements like Elementor components or FAQ blocks.
