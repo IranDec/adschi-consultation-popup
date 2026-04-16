@@ -376,6 +376,23 @@ function acp_inpost_the_content($content) {
         return $content;
     }
 
+    // Determine if a node is purely a structural wrapper without direct semantic content
+    $is_structural_wrapper = function($node) {
+        if (!in_array(strtolower($node->nodeName), ['div', 'section', 'article', 'main', 'aside', 'header', 'footer'])) {
+            return false;
+        }
+        $content_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'table', 'blockquote', 'img', 'figure', 'span', 'a', 'strong', 'em', 'b', 'i', 'iframe', 'video', 'audio'];
+        foreach ($node->childNodes as $child) {
+            if ($child->nodeType === XML_ELEMENT_NODE && in_array(strtolower($child->nodeName), $content_tags)) {
+                return false;
+            }
+            if ($child->nodeType === XML_TEXT_NODE && trim($child->nodeValue) !== '') {
+                return false;
+            }
+        }
+        return true;
+    };
+
     // Find the best top-level container to insert blocks into
     $container = $body;
     while (true) {
@@ -389,9 +406,13 @@ function acp_inpost_the_content($content) {
             }
         }
 
-        // If there is only 1 child element and no meaningful text, go deeper
+        // Only drill down if there is exactly 1 child element, no direct text, and that child is purely a structural wrapper
         if (count($element_children) === 1 && $text_length === 0) {
-            $container = $element_children[0];
+            if ($is_structural_wrapper($element_children[0])) {
+                $container = $element_children[0];
+            } else {
+                break;
+            }
         } else {
             break;
         }
