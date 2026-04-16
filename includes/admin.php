@@ -33,6 +33,16 @@ add_action('admin_menu', function() {
         'acp_render_forms_page'
     );
 
+    $inpost_hook = add_submenu_page(
+        'acp-requests',
+        acp_t('ماژول درون‌نوشته', 'In-Post Module', 'In-Post-Modul'),
+        acp_t('ماژول درون‌نوشته', 'In-Post Module', 'In-Post-Modul'),
+        'manage_options',
+        'acp-inpost',
+        'acp_render_inpost_page'
+    );
+    add_action("admin_print_scripts-$inpost_hook", 'acp_inpost_admin_scripts');
+
     add_submenu_page(
         'acp-requests',
         acp_t('تنظیمات', 'Settings', 'Einstellungen'),

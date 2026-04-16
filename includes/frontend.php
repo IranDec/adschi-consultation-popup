@@ -3,6 +3,13 @@ if (!defined('ABSPATH')) exit;
 
 function acp_enqueue_frontend_scripts() {
     $settings = get_option('acp_settings');
+    $inpost_settings = get_option('acp_inpost_settings', []);
+
+    // Load dashicons on frontend if in-post module is enabled and using an icon
+    if (!empty($inpost_settings['enabled']) && $inpost_settings['enabled'] === '1' && !empty($inpost_settings['button_icon'])) {
+        wp_enqueue_style('dashicons');
+    }
+
     $recaptcha_type = isset($settings['recaptcha_type']) ? $settings['recaptcha_type'] : 'none';
     $site_key = '';
     if ($recaptcha_type === 'v2') {
