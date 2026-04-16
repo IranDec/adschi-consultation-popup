@@ -312,40 +312,8 @@ function acp_inpost_the_content($content) {
         return $content;
     }
 
-    // Advanced block splitting algorithm suitable for Divi/Elementor
-    // Instead of naive </p> split, we find top-level elements or common block wrappers.
-    // However, the safest and most robust way without a full DOM parser is to split by common block closing tags
-    // but ONLY those that are likely at the root level of the content flow, or just split by all block closing tags
-    // and attempt to inject outside of nested structures.
-
-    // A more reliable approach: Use regex to split the content into blocks (paragraphs, divs, sections).
-    $blocks = preg_split('/(<\/p>|<\/div>|<\/section>|<\/article>|<\/blockquote>|<\/ul>|<\/ol>)/i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
-
-    // Combine text and its closing tag to keep the block intact
-    $content_blocks = [];
-    $current_block = '';
-    foreach ($blocks as $block) {
-        $current_block .= $block;
-        if (preg_match('/(<\/p>|<\/div>|<\/section>|<\/article>|<\/blockquote>|<\/ul>|<\/ol>)/i', $block)) {
-            $content_blocks[] = $current_block;
-            $current_block = '';
-        }
-    }
-    if (!empty($current_block)) {
-        $content_blocks[] = $current_block;
-    }
-
-    $total_blocks = count($content_blocks);
-    if ($total_blocks <= 1) {
-        // If the content isn't clearly split into multiple blocks, we fall back to just appending/prepending
-        $content_blocks = [$content];
-        $total_blocks = 1;
-    }
-
-    $inserted_positions = [];
-    $form_id = esc_attr($settings['form_id']);
-
     // Build Button HTML
+    $form_id = esc_attr($settings['form_id']);
     $btn_text = esc_html($settings['button_text']);
     $btn_bg = esc_attr($settings['button_color']);
     $btn_color = esc_attr($settings['button_text_color']);
@@ -365,32 +333,118 @@ function acp_inpost_the_content($content) {
         $banner_html = '<div style="text-align: center; margin: 20px 0;"><img src="' . $ban_url . '" class="' . $ban_class . '" style="width: ' . $ban_width . '; max-width: 100%; border-radius: 5px; cursor: pointer;" data-post-id="' . get_the_ID() . '" alt="Banner"></div>';
     }
 
-    foreach ($settings['rules'] as $rule) {
-        $pos_percent = intval($rule['position']);
-        $type = $rule['type'];
+    if (empty(trim($content))) {
+        return $content;
+    }
 
-        $b_index = floor(($pos_percent / 100) * $total_blocks);
+    $dom = new DOMDocument();
+    $previous_value = libxml_use_internal_errors(true);
 
-        // Adjust bounds
-        if ($b_index < 0) $b_index = 0;
-        if ($b_index >= $total_blocks) $b_index = $total_blocks - 1;
+    // Load content properly handling UTF-8
+    if (PHP_VERSION_ID >= 80200) {
+        $content_mb = mb_encode_numericentity($content, [0x80, 0x10FFFF, 0, 0x1FFFFF], 'UTF-8');
+    } else {
+        $content_mb = mb_convert_encoding($content, 'HTML-ENTITIES', 'UTF-8');
+    }
+    $dom->loadHTML('<body>' . $content_mb . '</body>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previous_value);
 
-        if (!isset($inserted_positions[$b_index])) {
-            $inserted_positions[$b_index] = '';
+    $body = $dom->getElementsByTagName('body')->item(0);
+    if (!$body) {
+        return $content;
+    }
+
+    // Find the best top-level container to insert blocks into
+    $container = $body;
+    while (true) {
+        $element_children = [];
+        $text_length = 0;
+        foreach ($container->childNodes as $child) {
+            if ($child->nodeType === XML_ELEMENT_NODE) {
+                $element_children[] = $child;
+            } elseif ($child->nodeType === XML_TEXT_NODE) {
+                $text_length += strlen(trim($child->nodeValue));
+            }
         }
 
-        if ($type === 'button') {
-            $inserted_positions[$b_index] .= $button_html;
-        } elseif ($type === 'banner' && $banner_html) {
-            $inserted_positions[$b_index] .= $banner_html;
+        // If there is only 1 child element and no meaningful text, go deeper
+        if (count($element_children) === 1 && $text_length === 0) {
+            $container = $element_children[0];
+        } else {
+            break;
         }
     }
 
-    $new_content = '';
-    foreach ($content_blocks as $index => $block) {
-        $new_content .= $block;
-        if (isset($inserted_positions[$index])) {
-            $new_content .= $inserted_positions[$index];
+    $children = [];
+    foreach ($container->childNodes as $child) {
+        // Skip purely whitespace text nodes
+        if ($child->nodeType === XML_TEXT_NODE && trim($child->nodeValue) === '') {
+            continue;
+        }
+        $children[] = $child;
+    }
+
+    $total_blocks = count($children);
+    if ($total_blocks === 0) {
+        // Fallback if structure is unexpected
+        $new_content = $content;
+    } else {
+        $insertions = [];
+        foreach ($settings['rules'] as $rule) {
+            $pos_percent = intval($rule['position']);
+            $type = $rule['type'];
+
+            $idx = floor(($pos_percent / 100) * $total_blocks);
+            if ($idx < 0) $idx = 0;
+            if ($idx > $total_blocks) $idx = $total_blocks;
+
+            if (!isset($insertions[$idx])) {
+                $insertions[$idx] = '';
+            }
+            if ($type === 'button') {
+                $insertions[$idx] .= $button_html;
+            } elseif ($type === 'banner' && $banner_html) {
+                $insertions[$idx] .= $banner_html;
+            }
+        }
+
+        // Insert backwards to avoid messing up indices
+        for ($i = $total_blocks; $i >= 0; $i--) {
+            if (!empty($insertions[$i])) {
+                $temp_dom = new DOMDocument();
+                $temp_prev = libxml_use_internal_errors(true);
+
+                if (PHP_VERSION_ID >= 80200) {
+                    $insertions_mb = mb_encode_numericentity($insertions[$i], [0x80, 0x10FFFF, 0, 0x1FFFFF], 'UTF-8');
+                } else {
+                    $insertions_mb = mb_convert_encoding($insertions[$i], 'HTML-ENTITIES', 'UTF-8');
+                }
+
+                $temp_dom->loadHTML('<body>' . $insertions_mb . '</body>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+                libxml_clear_errors();
+                libxml_use_internal_errors($temp_prev);
+
+                $temp_body = $temp_dom->getElementsByTagName('body')->item(0);
+                if ($temp_body) {
+                    $nodes_to_insert = [];
+                    foreach ($temp_body->childNodes as $node) {
+                        $nodes_to_insert[] = $dom->importNode($node, true);
+                    }
+                    foreach ($nodes_to_insert as $imported_node) {
+                        if ($i < $total_blocks) {
+                            $container->insertBefore($imported_node, $children[$i]);
+                        } else {
+                            $container->appendChild($imported_node);
+                        }
+                    }
+                }
+            }
+        }
+
+        $new_content = '';
+        foreach ($body->childNodes as $child) {
+            $new_content .= $dom->saveHTML($child);
         }
     }
 
