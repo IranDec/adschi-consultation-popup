@@ -381,6 +381,22 @@ function acp_inpost_the_content($content) {
         if (!in_array(strtolower($node->nodeName), ['div', 'section', 'article', 'main', 'aside', 'header', 'footer'])) {
             return false;
         }
+
+        // Explicitly reject drilling down into page builder modules, accordions, tabs, etc.
+        if ($node->hasAttribute('class')) {
+            $classes = explode(' ', strtolower($node->getAttribute('class')));
+            $stop_keywords = [
+                'module', 'widget', 'accordion', 'toggle', 'faq', 'tab', 'slider', 'carousel', 'gallery'
+            ];
+            foreach ($classes as $class) {
+                foreach ($stop_keywords as $keyword) {
+                    if (strpos($class, $keyword) !== false) {
+                        return false;
+                    }
+                }
+            }
+        }
+
         $content_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'table', 'blockquote', 'img', 'figure', 'span', 'a', 'strong', 'em', 'b', 'i', 'iframe', 'video', 'audio'];
         foreach ($node->childNodes as $child) {
             if ($child->nodeType === XML_ELEMENT_NODE && in_array(strtolower($child->nodeName), $content_tags)) {
