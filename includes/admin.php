@@ -35,6 +35,15 @@ add_action('admin_menu', function() {
 
     add_submenu_page(
         'acp-requests',
+        acp_t('ماژول درون‌نوشته', 'In-Post Module', 'In-Post-Modul'),
+        acp_t('ماژول درون‌نوشته', 'In-Post Module', 'In-Post-Modul'),
+        'manage_options',
+        'acp-inpost',
+        'acp_render_inpost_page'
+    );
+
+    add_submenu_page(
+        'acp-requests',
         acp_t('تنظیمات', 'Settings', 'Einstellungen'),
         acp_t('تنظیمات عمومی', 'Global Settings', 'Allgemeine Einstellungen'),
         'manage_options',
