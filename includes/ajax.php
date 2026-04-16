@@ -143,20 +143,6 @@ function acp_submit_request_ajax() {
 add_action('wp_ajax_acp_submit_request', 'acp_submit_request_ajax');
 add_action('wp_ajax_nopriv_acp_submit_request', 'acp_submit_request_ajax');
 
-function acp_track_inpost_click_ajax() {
-    check_ajax_referer('acp_inpost_click', 'nonce');
-    $post_id = intval($_POST['post_id']);
-    if ($post_id > 0) {
-        $clicks = intval(get_post_meta($post_id, 'acp_inpost_clicks', true));
-        $clicks++;
-        update_post_meta($post_id, 'acp_inpost_clicks', $clicks);
-        wp_send_json_success(['clicks' => $clicks]);
-    }
-    wp_send_json_error();
-}
-add_action('wp_ajax_acp_track_inpost_click', 'acp_track_inpost_click_ajax');
-add_action('wp_ajax_nopriv_acp_track_inpost_click', 'acp_track_inpost_click_ajax');
-
 function acp_log_email($recipient, $subject, $status, $error_msg = '') {
     global $wpdb;
     $table_logs = $wpdb->prefix . 'acp_email_logs';
