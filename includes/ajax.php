@@ -157,6 +157,80 @@ function acp_track_inpost_click_ajax() {
 add_action('wp_ajax_acp_track_inpost_click', 'acp_track_inpost_click_ajax');
 add_action('wp_ajax_nopriv_acp_track_inpost_click', 'acp_track_inpost_click_ajax');
 
+/**
+ * Fixed confirmation e-mail to the visitor (1.6.4). Never contains visitor input; skipped on links /
+ * spam text; limits: 1 per address per 24 h, 3 per IP per hour, 10 per hour and 40 per day in total.
+ *
+ * @return string 'sent' or the reason why nothing was sent
+ */
+function acp_send_safe_confirmation($email, array $values, $site_name) {
+    $email = strtolower(trim((string) $email));
+    if (!is_email($email)) {
+        return 'invalid_email';
+    }
+    foreach ($values as $key => $value) {
+        $value = (string) $value;
+        if (preg_match('~https?://|www\.|>>>|\[url|<a\s|\b[a-z0-9-]{2,}\.(?:cc|ru|cn|xyz|top|icu|click|link|shop|online|site|live|bond|sbs|cfd|tk|gq|ml)\b~i', $value)) {
+            return 'link_or_spam_text';
+        }
+        if ('name' === $key && (strlen($value) > 80 || false !== strpos($value, '@'))) {
+            return 'suspicious_name';
+        }
+    }
+
+    list($local, $domain) = explode('@', $email, 2);
+    $local = preg_replace('/\+.*$/', '', $local);
+    if (in_array($domain, ['gmail.com', 'googlemail.com'], true)) {
+        $local = str_replace('.', '', $local);
+        $domain = 'gmail.com';
+    }
+    $address_key = 'acp_conf_' . md5($local . '@' . $domain);
+    if (get_transient($address_key)) {
+        return 'address_limit_24h';
+    }
+
+    $ip = isset($_SERVER['HTTP_CF_CONNECTING_IP']) && filter_var($_SERVER['HTTP_CF_CONNECTING_IP'], FILTER_VALIDATE_IP)
+        ? $_SERVER['HTTP_CF_CONNECTING_IP'] : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
+    $ip_key = 'acp_conf_ip_' . md5((string) $ip);
+    $ip_count = (int) get_transient($ip_key);
+    if ($ip_count >= 3) {
+        return 'ip_limit_hour';
+    }
+    set_transient($ip_key, $ip_count + 1, HOUR_IN_SECONDS);
+
+    $times = array_values(array_filter((array) get_option('acp_confirm_times', []), function ($t) {
+        return (int) $t > time() - DAY_IN_SECONDS;
+    }));
+    $last_hour = count(array_filter($times, function ($t) {
+        return (int) $t > time() - HOUR_IN_SECONDS;
+    }));
+    if ($last_hour >= 10 || count($times) >= 40) {
+        return 'total_limit_paused';
+    }
+
+    $site = esc_html($site_name);
+    $subject = acp_t('درخواست شما دریافت شد - ', 'We have received your request - ', 'Ihre Anfrage ist bei uns eingegangen - ') . wp_specialchars_decode($site_name, ENT_QUOTES);
+    $locale = get_locale();
+    $direction = (strpos($locale, 'fa_') === 0) ? 'direction:rtl; text-align:right;' : 'direction:ltr; text-align:left;';
+    $body = "<div style='font-family:Tahoma, Arial, sans-serif; $direction background:#f4f4f4; padding:20px;'>"
+        . "<div style='background:#fff; padding:20px; border-radius:8px; max-width:600px; margin:0 auto; border-top: 5px solid #007cba;'>"
+        . '<h2 style="color:#333;">' . acp_t('سلام،', 'Hello,', 'Guten Tag,') . '</h2>'
+        . '<p>' . acp_t('درخواست مشاوره شما دریافت شد. همکاران ما به زودی با شما تماس می‌گیرند.', 'Your consultation request has been received. Our team will contact you soon.', 'Ihre Beratungsanfrage ist bei uns eingegangen. Unser Team meldet sich in Kürze bei Ihnen.') . '</p>'
+        . '<p>' . acp_t('با تشکر،', 'Best regards,', 'Mit freundlichen Grüßen,') . '<br><strong>' . $site . '</strong></p>'
+        . '<p style="color:#888;font-size:12px;">' . acp_t('اگر این درخواست را شما ارسال نکرده‌اید، کاری لازم نیست.', 'If you did not send this request, you do not need to do anything.', 'Wenn Sie diese Anfrage nicht gesendet haben, müssen Sie nichts tun.') . '</p>'
+        . '</div></div>';
+    $headers = ['Content-Type: text/html; charset=UTF-8', 'Auto-Submitted: auto-replied', 'X-Auto-Response-Suppress: All'];
+
+    if (!wp_mail($email, $subject, $body, $headers)) {
+        return 'mail_failed';
+    }
+    set_transient($address_key, 1, DAY_IN_SECONDS);
+    $times[] = time();
+    update_option('acp_confirm_times', array_slice($times, -100), false);
+
+    return 'sent';
+}
+
 function acp_log_email($recipient, $subject, $status, $error_msg = '') {
     global $wpdb;
     $table_logs = $wpdb->prefix . 'acp_email_logs';
@@ -233,32 +307,17 @@ function acp_send_emails($name, $email, $phone, $date, $message = '', $departmen
         acp_log_email($admin_email, $admin_subject, 'failed', $error_msg);
     }
 
-    // User Email
+    // User Email (1.6.4 security fix): a fixed confirmation that contains nothing the visitor typed.
+    // Up to 1.6.3 the message embedded name, phone and date and went to any typed address - bots
+    // could use the form to mail their text to strangers. Uses the "KAS Contact Confirmation" plugin
+    // when it is installed, otherwise the same rules built in here.
     if (!empty($email)) {
-        $user_subject = acp_t('درخواست مشاوره شما ثبت شد - ', 'Your Consultation Request is Confirmed - ', 'Ihre Beratungsanfrage ist bestätigt - ') . $site_name;
-
-        $hello_label = acp_t("سلام $name عزیز،", "Hello $name,", "Hallo $name,");
-        $confirmed_label = acp_t("درخواست مشاوره شما برای تاریخ <strong>$date</strong> با موفقیت ثبت شد.", "Your consultation request for <strong>$date</strong> has been successfully received.", "Ihre Beratungsanfrage für <strong>$date</strong> ist erfolgreich eingegangen.");
-        $contact_label = acp_t("کارشناسان ما به زودی از طریق شماره تلفن <strong>$phone</strong> با شما تماس خواهند گرفت.", "Our experts will contact you soon at <strong>$phone</strong>.", "Unsere Experten werden Sie bald unter <strong>$phone</strong> kontaktieren.");
-        $thanks_label = acp_t("با تشکر،<br>تیم پشتیبانی", "Best regards,<br>Support Team", "Mit freundlichen Grüßen,<br>Support-Team");
-
-        $user_body = "
-        <div style='font-family:Tahoma, Arial, sans-serif; $direction background:#f4f4f4; padding:20px;'>
-            <div style='background:#fff; padding:20px; border-radius:8px; max-width:600px; margin:0 auto; box-shadow:0 4px 10px rgba(0,0,0,0.1); border-top: 5px solid #007cba;'>
-                <h2 style='color:#333;'>$hello_label</h2>
-                <p>$confirmed_label</p>
-                <p>$contact_label</p>
-                <br>
-                <p>$thanks_label <strong>$site_name</strong></p>
-            </div>
-        </div>";
-
-        $user_sent = wp_mail($email, $user_subject, $user_body, $headers);
-        if ($user_sent) {
-            acp_log_email($email, $user_subject, 'success');
+        $values = ['name' => $name, 'phone' => $phone, 'date' => $date, 'message' => (string) $message, 'department' => (string) $department];
+        if (class_exists('KAS_Contact_Confirmation')) {
+            $user_result = KAS_Contact_Confirmation::maybe_confirm($email, $values, 'popup');
         } else {
-            $error_msg = isset($phpmailer->ErrorInfo) ? $phpmailer->ErrorInfo : 'Unknown wp_mail error';
-            acp_log_email($email, $user_subject, 'failed', $error_msg);
+            $user_result = acp_send_safe_confirmation($email, $values, $site_name);
         }
+        acp_log_email($email, acp_t('تأیید دریافت درخواست', 'Request confirmation', 'Eingangsbestätigung'), 'sent' === $user_result ? 'success' : 'skipped', 'sent' === $user_result ? '' : $user_result);
     }
 }

@@ -4,7 +4,7 @@ Donate link: https://adschi.com/
 Tags: consultation, popup, form, recaptcha, elementor, divi
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.4
+Stable tag: 1.6.4
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,12 @@ You can manage all requests from the "Consultation Requests" menu in your WordPr
 3. Settings page.
 
 == Changelog ==
+
+= 1.6.4 =
+* Security: the confirmation e-mail to the visitor no longer contains anything the visitor typed (name, phone, date). Up to 1.6.3 bots could enter a stranger's address and their own text, and the site mailed it.
+* Security: no confirmation when the form contains links or spam text; limits of 1 confirmation per address per 24 hours, 3 per IP per hour, 10 per hour and 40 per day in total.
+* Added: uses the "KAS Contact Confirmation (safe)" plugin when it is installed (same rules for all forms of the site).
+* Added: Auto-Submitted header on the confirmation (no auto-reply loops).
 
 = 1.4 =
 * Added: In-Post Module to automatically inject call-to-action buttons and banners inside blog posts based on content percentage rules.
