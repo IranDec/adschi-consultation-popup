@@ -4,7 +4,7 @@ Donate link: https://adschi.com/
 Tags: consultation, popup, form, recaptcha, elementor, divi
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.6.4
+Stable tag: 1.7.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,17 @@ You can manage all requests from the "Consultation Requests" menu in your WordPr
 3. Settings page.
 
 == Changelog ==
+
+= 1.7.0 =
+* Redesigned: Consultation Requests page (CRM) - clickable KPI cards (new, follow-ups due / overdue, call back, done, this month), status tabs with counts, clean table with call / e-mail links, styled confirmation popup, centred footer.
+* Added: server-side search (name, e-mail, phone, message, note, ID), form and date-range filters, sortable columns and pagination (20 / 50 / 100) - large lists no longer load at once.
+* Added: request detail view - all data, full message, attachment, call / WhatsApp / e-mail buttons, source page of the request.
+* Added: statuses "Done" and "Spam" (besides New, Call back, Contacted); follow-up date for call-backs with quick picks; overdue follow-ups are highlighted.
+* Added: history per request - every status change and note with user and time (the old single admin note is kept as the first entry).
+* Added: bulk actions (change status, delete) and CSV export of the current filter (Excel-ready, formula-safe).
+* Changed: deleting a request also deletes its uploaded file (privacy); the admin e-mail links directly to the request.
+* Fixed: e-mail log shows "Skipped" (abuse protection) instead of "Failed".
+* Database: new columns follow_up_at, page_url, updated_at and table acp_request_notes (created automatically on update).
 
 = 1.6.4 =
 * Security: the confirmation e-mail to the visitor no longer contains anything the visitor typed (name, phone, date). Up to 1.6.3 bots could enter a stranger's address and their own text, and the site mailed it.

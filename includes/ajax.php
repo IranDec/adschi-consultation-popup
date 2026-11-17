@@ -115,6 +115,7 @@ function acp_submit_request_ajax() {
             'department' => $department,
             'attachment' => $attachment_url,
             'status' => 'pending',
+            'page_url' => substr(esc_url_raw((string) wp_get_referer()), 0, 255),
             'created_at' => current_time('mysql')
         ],
         [
@@ -127,13 +128,14 @@ function acp_submit_request_ajax() {
             '%s', // department
             '%s', // attachment
             '%s', // status
+            '%s', // page_url
             '%s'  // created_at
         ]
     );
 
     if ($inserted) {
         // Send Emails
-        acp_send_emails($name, $email, $phone, $date, $message, $department, $attachment_url);
+        acp_send_emails($name, $email, $phone, $date, $message, $department, $attachment_url, (int) $wpdb->insert_id);
 
         wp_send_json_success(['message' => acp_t('درخواست شما با موفقیت ثبت شد. به زودی با شما تماس می‌گیریم.', 'Request submitted successfully. We will contact you soon.', 'Anfrage erfolgreich eingereicht. Wir werden Sie in Kürze kontaktieren.')]);
     } else {
@@ -247,14 +249,14 @@ function acp_log_email($recipient, $subject, $status, $error_msg = '') {
     );
 }
 
-function acp_send_emails($name, $email, $phone, $date, $message = '', $department = '', $attachment_url = '') {
+function acp_send_emails($name, $email, $phone, $date, $message = '', $department = '', $attachment_url = '', $request_id = 0) {
     $global_settings = get_option('acp_settings', []);
     $form_id = isset($_POST['acp_form_id']) ? sanitize_text_field($_POST['acp_form_id']) : 'default';
     $forms = get_option('acp_forms', []);
     $settings = isset($forms[$form_id]) ? $forms[$form_id] : [];
     $admin_email = !empty($global_settings['admin_email']) ? $global_settings['admin_email'] : get_option('admin_email');
     $site_name = get_bloginfo('name');
-    $admin_url = admin_url('admin.php?page=acp-requests');
+    $admin_url = esc_url(admin_url('admin.php?page=acp-requests' . ($request_id ? '&view=' . (int) $request_id : '')));
 
     $headers = array('Content-Type: text/html; charset=UTF-8');
 

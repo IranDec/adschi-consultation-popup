@@ -1,6 +1,22 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+/** Styles and script for the plugin's admin pages only. */
+add_action('admin_enqueue_scripts', function ($hook) {
+    $page = isset($_GET['page']) ? sanitize_key($_GET['page']) : '';
+    if (0 !== strpos($page, 'acp-')) {
+        return;
+    }
+    wp_enqueue_style('acp-admin', ACP_URL . 'assets/admin.css', [], ACP_VERSION);
+    wp_enqueue_script('acp-admin', ACP_URL . 'assets/admin.js', [], ACP_VERSION, true);
+    wp_localize_script('acp-admin', 'acpAdmin', [
+        'confirmTitle' => acp_t('تأیید کنید', 'Please confirm', 'Bitte bestätigen'),
+        'yes' => acp_t('بله، ادامه', 'Yes, continue', 'Ja, fortfahren'),
+        'no' => acp_t('خیر', 'No', 'Nein'),
+        'selectFirst' => acp_t('ابتدا درخواست‌ها و یک عملیات را انتخاب کنید.', 'Select requests and an action first.', 'Bitte zuerst Anfragen und eine Aktion auswählen.'),
+    ]);
+});
+
 add_action('admin_menu', function() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'acp_requests';
@@ -156,281 +172,6 @@ function acp_render_settings_page() {
     acp_admin_footer();
 }
 
-function acp_render_crm_page() {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'acp_requests';
-
-    // Handle updates
-    if (isset($_POST['acp_update_req']) && check_admin_referer('acp_crm_action', 'acp_crm_nonce')) {
-        $id = intval($_POST['req_id']);
-        $status = sanitize_text_field($_POST['status']);
-        $note = sanitize_textarea_field($_POST['admin_note']);
-
-        $wpdb->update($table_name, ['status' => $status, 'admin_note' => $note], ['id' => $id]);
-        echo '<div class="updated"><p>' . esc_html(acp_t('وضعیت بروز شد.', 'Status updated.', 'Status aktualisiert.')) . '</p></div>';
-    }
-
-    if (isset($_POST['acp_delete_req']) && check_admin_referer('acp_crm_action', 'acp_crm_nonce')) {
-        $id = intval($_POST['req_id']);
-        $wpdb->delete($table_name, ['id' => $id]);
-        echo '<div class="updated"><p>' . esc_html(acp_t('درخواست حذف شد.', 'Request deleted.', 'Anfrage gelöscht.')) . '</p></div>';
-    }
-
-    $results = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
-
-    // Calculate statistics
-    $total_requests = count($results);
-    $pending_requests = 0;
-    $called_requests = 0;
-    $call_later_requests = 0;
-    $form_counts = [];
-
-    foreach ($results as $r) {
-        if ($r->status === 'pending') $pending_requests++;
-        elseif ($r->status === 'called') $called_requests++;
-        elseif ($r->status === 'call_later') $call_later_requests++;
-
-        if (!isset($form_counts[$r->form_id])) $form_counts[$r->form_id] = 0;
-        $form_counts[$r->form_id]++;
-    }
-
-    $forms = get_option('acp_forms', []);
-    ?>
-    <div class="wrap">
-        <h1><?php echo esc_html(acp_t('درخواست‌های مشاوره', 'Consultation Requests', 'Beratungsanfragen')); ?></h1>
-
-        <!-- Statistic Cards -->
-        <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 200px; background: #fff; border-right: 4px solid #007cba; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center;">
-                <span class="dashicons dashicons-clipboard" style="font-size: 40px; width: 40px; height: 40px; color: #007cba; margin-left: 15px;"></span>
-                <div>
-                    <h3 style="margin: 0; font-size: 14px; color: #666;"><?php echo esc_html(acp_t('کل درخواست‌ها', 'Total Requests', 'Alle Anfragen')); ?></h3>
-                    <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #333;"><?php echo esc_html($total_requests); ?></p>
-                </div>
-            </div>
-            <div style="flex: 1; min-width: 200px; background: #fff; border-right: 4px solid #dba617; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center;">
-                <span class="dashicons dashicons-clock" style="font-size: 40px; width: 40px; height: 40px; color: #dba617; margin-left: 15px;"></span>
-                <div>
-                    <h3 style="margin: 0; font-size: 14px; color: #666;"><?php echo esc_html(acp_t('در انتظار', 'Pending', 'Ausstehend')); ?></h3>
-                    <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #333;"><?php echo esc_html($pending_requests); ?></p>
-                </div>
-            </div>
-            <div style="flex: 1; min-width: 200px; background: #fff; border-right: 4px solid #46b450; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center;">
-                <span class="dashicons dashicons-yes" style="font-size: 40px; width: 40px; height: 40px; color: #46b450; margin-left: 15px;"></span>
-                <div>
-                    <h3 style="margin: 0; font-size: 14px; color: #666;"><?php echo esc_html(acp_t('تماس گرفته شد', 'Called', 'Angerufen')); ?></h3>
-                    <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #333;"><?php echo esc_html($called_requests); ?></p>
-                </div>
-            </div>
-            <div style="flex: 1; min-width: 200px; background: #fff; border-right: 4px solid #00a0d2; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center;">
-                <span class="dashicons dashicons-phone" style="font-size: 40px; width: 40px; height: 40px; color: #00a0d2; margin-left: 15px;"></span>
-                <div>
-                    <h3 style="margin: 0; font-size: 14px; color: #666;"><?php echo esc_html(acp_t('تماس مجدد', 'Call Later', 'Später anrufen')); ?></h3>
-                    <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #333;"><?php echo esc_html($call_later_requests); ?></p>
-                </div>
-            </div>
-        </div>
-
-        <div style="margin-bottom: 20px; background: #fff; padding: 15px; border: 1px solid #ccd0d4; border-radius: 5px;">
-            <h3 style="margin-top:0;"><?php echo esc_html(acp_t('آمار استفاده از هر فرم', 'Usage Statistics Per Form', 'Nutzungsstatistiken pro Formular')); ?></h3>
-            <ul style="margin:0; padding:0; list-style:none; display:flex; gap:15px; flex-wrap:wrap;">
-                <?php foreach ($forms as $id => $f):
-                    $c = isset($form_counts[$id]) ? $form_counts[$id] : 0;
-                ?>
-                <li style="background:#f4f4f4; padding:10px 15px; border-radius:4px; border:1px solid #ddd;">
-                    <strong><?php echo esc_html($f['form_name']); ?>:</strong> <?php echo esc_html($c); ?> <?php echo esc_html(acp_t('درخواست', 'Requests', 'Anfragen')); ?>
-                </li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-
-        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
-            <div>
-                <input type="text" id="acpSearchInput" placeholder="<?php echo esc_attr(acp_t('جستجو...', 'Search...', 'Suchen...')); ?>" style="padding: 5px; width: 250px;">
-                <select id="acpFormFilter" style="padding: 5px; margin-right: 10px; margin-left: 10px;">
-                    <option value="all"><?php echo esc_html(acp_t('همه فرم‌ها', 'All Forms', 'Alle Formulare')); ?></option>
-                    <?php foreach ($forms as $id => $f): ?>
-                        <option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($f['form_name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select id="acpStatusFilter" style="padding: 5px; margin-right: 10px; margin-left: 10px;">
-                    <option value="all"><?php echo esc_html(acp_t('همه وضعیت‌ها', 'All Statuses', 'Alle Status')); ?></option>
-                    <option value="pending"><?php echo esc_html(acp_t('در انتظار', 'Pending', 'Ausstehend')); ?></option>
-                    <option value="called"><?php echo esc_html(acp_t('تماس گرفته شد', 'Called', 'Angerufen')); ?></option>
-                    <option value="call_later"><?php echo esc_html(acp_t('تماس مجدد', 'Call Later', 'Später anrufen')); ?></option>
-                </select>
-            </div>
-        </div>
-
-        <table class="wp-list-table widefat fixed striped" id="acpRequestsTable">
-            <thead>
-                <tr>
-                    <th style="cursor:pointer;" onclick="acpSortTable(0)">ID &#x21D5;</th>
-                    <th><?php echo esc_html(acp_t('فرم', 'Form', 'Formular')); ?></th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(2)"><?php echo esc_html(acp_t('نام', 'Name', 'Name')); ?> &#x21D5;</th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(3)"><?php echo esc_html(acp_t('ایمیل / تلفن', 'Email / Phone', 'E-Mail / Telefon')); ?> &#x21D5;</th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(4)"><?php echo esc_html(acp_t('تاریخ درخواستی', 'Requested Date', 'Gewünschtes Datum')); ?> &#x21D5;</th>
-                    <th><?php echo esc_html(acp_t('بخش / پیام', 'Department / Msg', 'Abteilung / Nachr')); ?></th>
-                    <th><?php echo esc_html(acp_t('فایل', 'File', 'Datei')); ?></th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(7)"><?php echo esc_html(acp_t('وضعیت', 'Status', 'Status')); ?> &#x21D5;</th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(8)"><?php echo esc_html(acp_t('یادداشت مدیر', 'Admin Note', 'Admin-Notiz')); ?> &#x21D5;</th>
-                    <th style="cursor:pointer;" onclick="acpSortTable(9)"><?php echo esc_html(acp_t('تاریخ ثبت', 'Submitted At', 'Eingereicht am')); ?> &#x21D5;</th>
-                    <th><?php echo esc_html(acp_t('عملیات', 'Actions', 'Aktionen')); ?></th>
-                </tr>
-            </thead>
-            <tbody id="acpRequestsBody">
-                <?php if(empty($results)): ?>
-                    <tr><td colspan="11"><?php echo esc_html(acp_t('هیچ درخواستی وجود ندارد.', 'No requests found.', 'Keine Anfragen gefunden.')); ?></td></tr>
-                <?php else: foreach($results as $row):
-                    $form_name = isset($forms[$row->form_id]) ? $forms[$row->form_id]['form_name'] : $row->form_id;
-                ?>
-                    <tr data-raw-status="<?php echo esc_attr($row->status); ?>" data-form-id="<?php echo esc_attr($row->form_id); ?>">
-                        <td><?php echo intval($row->id); ?></td>
-                        <td><?php echo esc_html($form_name); ?></td>
-                        <td><?php echo esc_html($row->name); ?></td>
-                        <td><?php echo esc_html($row->email . ' / ' . $row->phone); ?></td>
-                        <td><?php echo esc_html($row->req_date); ?></td>
-                        <td>
-                            <?php
-                            if (!empty($row->department)) echo '<strong>' . esc_html($row->department) . '</strong><br>';
-                            if (!empty($row->message)) echo esc_html(wp_trim_words($row->message, 10));
-                            ?>
-                        </td>
-                        <td>
-                            <?php if(!empty($row->attachment)): ?>
-                                <a href="<?php echo esc_url($row->attachment); ?>" target="_blank" class="button button-small"><?php echo esc_html(acp_t('دانلود', 'Download', 'Herunterladen')); ?></a>
-                            <?php else: ?>
-                                -
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php
-                            if ($row->status === 'pending') echo '<span style="color:orange;font-weight:bold;">' . acp_t('در انتظار', 'Pending', 'Ausstehend') . '</span>';
-                            elseif ($row->status === 'called') echo '<span style="color:green;font-weight:bold;">' . acp_t('تماس گرفته شد', 'Called', 'Angerufen') . '</span>';
-                            elseif ($row->status === 'call_later') echo '<span style="color:blue;font-weight:bold;">' . acp_t('تماس مجدد', 'Call Later', 'Später anrufen') . '</span>';
-                            ?>
-                        </td>
-                        <td><?php echo esc_html($row->admin_note); ?></td>
-                        <td><?php echo esc_html($row->created_at); ?></td>
-                        <td>
-                            <button class="button action-edit-req" data-id="<?php echo $row->id; ?>" data-status="<?php echo esc_attr($row->status); ?>" data-note="<?php echo esc_attr($row->admin_note); ?>"><?php echo esc_html(acp_t('ویرایش', 'Edit', 'Bearbeiten')); ?></button>
-
-                            <form method="post" style="display:inline;" onsubmit="return confirm('<?php echo esc_js(acp_t('آیا مطمئن هستید؟', 'Are you sure?', 'Sind Sie sicher?')); ?>');">
-                                <?php wp_nonce_field('acp_crm_action', 'acp_crm_nonce'); ?>
-                                <input type="hidden" name="req_id" value="<?php echo $row->id; ?>">
-                                <button type="submit" name="acp_delete_req" class="button" style="color:red;"><?php echo esc_html(acp_t('حذف', 'Delete', 'Löschen')); ?></button>
-                            </form>
-                        </td>
-                    </tr>
-                <?php endforeach; endif; ?>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Edit Modal -->
-    <div id="acp-edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999;">
-        <div style="background:#fff; width:400px; margin: 100px auto; padding: 20px; border-radius: 5px;">
-            <h2><?php echo esc_html(acp_t('بروزرسانی وضعیت', 'Update Status', 'Status aktualisieren')); ?></h2>
-            <form method="post">
-                <?php wp_nonce_field('acp_crm_action', 'acp_crm_nonce'); ?>
-                <input type="hidden" name="req_id" id="acp-edit-id">
-                <p>
-                    <label><?php echo esc_html(acp_t('وضعیت', 'Status', 'Status')); ?></label><br>
-                    <select name="status" id="acp-edit-status" style="width:100%;">
-                        <option value="pending"><?php echo esc_html(acp_t('در انتظار', 'Pending', 'Ausstehend')); ?></option>
-                        <option value="called"><?php echo esc_html(acp_t('تماس گرفته شد', 'Called', 'Angerufen')); ?></option>
-                        <option value="call_later"><?php echo esc_html(acp_t('تماس مجدد', 'Call Later', 'Später anrufen')); ?></option>
-                    </select>
-                </p>
-                <p>
-                    <label><?php echo esc_html(acp_t('یادداشت مدیر', 'Admin Note', 'Admin-Notiz')); ?></label><br>
-                    <textarea name="admin_note" id="acp-edit-note" style="width:100%; height:80px;"></textarea>
-                </p>
-                <p>
-                    <input type="submit" name="acp_update_req" class="button button-primary" value="<?php echo esc_attr(acp_t('ذخیره', 'Save', 'Speichern')); ?>">
-                    <button type="button" class="button" onclick="document.getElementById('acp-edit-modal').style.display='none';"><?php echo esc_html(acp_t('لغو', 'Cancel', 'Abbrechen')); ?></button>
-                </p>
-            </form>
-        </div>
-    </div>
-    <script>
-        // Sorting and filtering logic
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('acpSearchInput');
-            const statusFilter = document.getElementById('acpStatusFilter');
-            const formFilter = document.getElementById('acpFormFilter');
-            const tableBody = document.getElementById('acpRequestsBody');
-
-            function filterTable() {
-                const term = searchInput.value.toLowerCase();
-                const status = statusFilter.value;
-                const formId = formFilter ? formFilter.value : 'all';
-                const rows = tableBody.getElementsByTagName('tr');
-
-                for(let i=0; i<rows.length; i++) {
-                    if(rows[i].cells.length < 10) continue; // skip empty messages
-
-                    const textContent = rows[i].textContent.toLowerCase();
-                    const rowStatus = rows[i].getAttribute('data-raw-status');
-                    const rowForm = rows[i].getAttribute('data-form-id');
-
-                    const matchSearch = textContent.indexOf(term) > -1;
-                    const matchStatus = (status === 'all' || rowStatus === status);
-                    const matchForm = (formId === 'all' || rowForm === formId);
-
-                    if(matchSearch && matchStatus && matchForm) {
-                        rows[i].style.display = '';
-                    } else {
-                        rows[i].style.display = 'none';
-                    }
-                }
-            }
-
-            if(searchInput) searchInput.addEventListener('keyup', filterTable);
-            if(statusFilter) statusFilter.addEventListener('change', filterTable);
-            if(formFilter) formFilter.addEventListener('change', filterTable);
-        });
-
-        let acpSortAsc = true;
-        function acpSortTable(colIdx) {
-            const table = document.getElementById('acpRequestsTable');
-            const tbody = document.getElementById('acpRequestsBody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            if(rows.length === 0 || rows[0].cells.length < 10) return;
-
-            acpSortAsc = !acpSortAsc;
-
-            rows.sort((a, b) => {
-                let valA = a.cells[colIdx].innerText.trim();
-                let valB = b.cells[colIdx].innerText.trim();
-
-                if (colIdx === 0) { // ID is numeric
-                    valA = parseInt(valA) || 0;
-                    valB = parseInt(valB) || 0;
-                }
-
-                if(valA < valB) return acpSortAsc ? -1 : 1;
-                if(valA > valB) return acpSortAsc ? 1 : -1;
-                return 0;
-            });
-
-            rows.forEach(row => tbody.appendChild(row));
-        }
-
-        document.querySelectorAll('.action-edit-req').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                document.getElementById('acp-edit-id').value = this.getAttribute('data-id');
-                document.getElementById('acp-edit-status').value = this.getAttribute('data-status');
-                document.getElementById('acp-edit-note').value = this.getAttribute('data-note');
-                document.getElementById('acp-edit-modal').style.display = 'block';
-            });
-        });
-    </script>
-    <?php
-    acp_admin_footer();
-}
-
-
 function acp_render_email_logs_page() {
     global $wpdb;
     $table_logs = $wpdb->prefix . 'acp_email_logs';
@@ -460,6 +201,8 @@ function acp_render_email_logs_page() {
                         <td>
                             <?php if($row->status === 'success'): ?>
                                 <span style="color:green;font-weight:bold;"><?php echo esc_html(acp_t('موفق', 'Success', 'Erfolg')); ?></span>
+                            <?php elseif($row->status === 'skipped'): ?>
+                                <span style="color:#b26a00;font-weight:bold;" title="<?php echo esc_attr(acp_t('برای جلوگیری از سوءاستفاده ارسال نشد', 'Not sent to prevent abuse', 'Zum Schutz vor Missbrauch nicht gesendet')); ?>"><?php echo esc_html(acp_t('ارسال نشد', 'Skipped', 'Übersprungen')); ?></span>
                             <?php else: ?>
                                 <span style="color:red;font-weight:bold;"><?php echo esc_html(acp_t('ناموفق', 'Failed', 'Fehlgeschlagen')); ?></span>
                             <?php endif; ?>
@@ -476,21 +219,12 @@ function acp_render_email_logs_page() {
 }
 
 function acp_admin_footer() {
-    if (!function_exists('get_plugin_data')) {
-        require_once(ABSPATH . 'wp-admin/includes/plugin.php');
-    }
-    $plugin_data = get_plugin_data(dirname(dirname(__FILE__)) . '/adschi-consultation-popup.php');
-    $version = $plugin_data['Version'];
-    echo '<div style="margin-top: 30px; padding: 15px; background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04); text-align: center; font-size: 14px; direction: rtl;">';
-    echo sprintf(
-        acp_t(
-            'نسخه افزونه: %s | توسعه دهنده: <a href="https://adschi.com" target="_blank">Mohammad Babaei</a> | برای مشاوره و ساخت ماژول اختصاصی می‌توانید درخواست دهید.',
-            'Plugin Version: %s | Developer: <a href="https://adschi.com" target="_blank">Mohammad Babaei</a> | Contact for custom module development.',
-            'Plugin-Version: %s | Entwickler: <a href="https://adschi.com" target="_blank">Mohammad Babaei</a> | Kontakt für benutzerdefinierte Modulentwicklung.'
-        ),
-        esc_html($version)
-    );
-    echo '</div>';
+    $version = defined('ACP_VERSION') ? ACP_VERSION : '';
+    echo '<div class="acp-footer"><div class="acp-footer-card">'
+        . '<div class="acp-footer-title">Adschi Consultation Popup <span class="acp-footer-ver">v' . esc_html($version) . '</span></div>'
+        . '<div class="acp-footer-by">' . esc_html(acp_t('توسعه‌دهنده', 'Developed by', 'Entwickelt von')) . ' <a href="https://adschi.com" target="_blank" rel="noopener noreferrer">Mohammad Babaei</a> &middot; <a href="https://adschi.com" target="_blank" rel="noopener noreferrer">adschi.com</a></div>'
+        . '<div class="acp-footer-note">' . esc_html(acp_t('برای ساخت ماژول اختصاصی با ما در تماس باشید.', 'Contact us for custom module development.', 'Kontakt für individuelle Modulentwicklung.')) . '</div>'
+        . '</div></div>';
 }
 
 function acp_render_forms_page() {
